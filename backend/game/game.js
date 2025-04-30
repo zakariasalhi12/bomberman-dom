@@ -18,22 +18,45 @@ export class Game {
         return Math.random().toString(36).substring(2, 8);
     }
 
-    generateMap(width = 15, height = 13) {
+    generateMap(width, height) {
         const map = [];
+        // Create empty map filled with 0 (empty spaces)
         for (let y = 0; y < height; y++) {
             const row = [];
             for (let x = 0; x < width; x++) {
-                // 0 = empty, 1 = wall, 2 = destructible block
-                row.push((x % 2 === 1 && y % 2 === 1) ? 1 : Math.random() < 0.2 ? 2 : 0);
+                // 0 = empty, 1 = wall (indestructible), 2 = block (destructible)
+                if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
+                    // Border walls
+                    row.push(1);
+                } else if (x % 2 === 0 && y % 2 === 0) {
+                    // Inner walls in grid pattern
+                    row.push(1);
+                } else {
+                    // Randomly place destructible blocks (70% chance)
+                    // But ensure corners are clear for player starting positions
+                    const isCornerArea =
+                        (x <= 2 && y <= 2) || // Top-left
+                        (x <= 2 && y >= height - 3) || // Bottom-left
+                        (x >= width - 3 && y <= 2) || // Top-right
+                        (x >= width - 3 && y >= height - 3); // Bottom-right
+
+                    if (isCornerArea) {
+                        row.push(0); // Keep corners empty
+                    } else {
+                        row.push(Math.random() < 0.7 ? 2 : 0);
+                    }
+                }
             }
             map.push(row);
         }
+
         return map;
     }
 
     createRoom() {
         const roomId = this.generateRoomId();
-        const map = this.generateMap();
+        const map = this.generateMap(15, 15);
+        console.warn("map", map);
         const room = new Room(roomId, map);
         this.rooms.set(roomId, room);
         return room;
@@ -50,8 +73,8 @@ export class Game {
 
     joinPlayerToRoom(playerData, socket) {
         const room = this.findOrCreateRoom();
+        // console.warn(room)
         const playerId = Date.now().toString(36) + Math.random().toString(36).substring(2);
-
         const player = new Player(
             playerId,
             playerData.nickname,
@@ -144,7 +167,6 @@ export class Game {
         room.gameInterval = setInterval(() => {
             this.updateGame(room);
         }, 1000 / 60); // 60 FPS
-
         this.broadcastToRoom(room, {
             type: 'game_started',
             players: Array.from(room.players.entries()).map(([id, player]) => ({
@@ -159,6 +181,7 @@ export class Game {
             })),
             map: room.map
         });
+
     }
 
     updateGame(room) {

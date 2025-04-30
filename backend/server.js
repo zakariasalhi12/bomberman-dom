@@ -1,12 +1,17 @@
-import express from "express";
 import http from "http";
-import { WebSocketServer } from "ws"; // Import WebSocketServer specifically
+import { WebSocketServer } from "ws";
 import { Game } from './game/game.js';
 
-const app = express();
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server }); // Use WebSocketServer directly
-// // Initialize game
+// Create plain HTTP server
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('WebSocket server is running.\n');
+});
+
+// Create WebSocket server
+const wss = new WebSocketServer({ server });
+
+// Initialize game
 const game = new Game((room, message, exclude) => {
     const data = JSON.stringify({
         ...message,
@@ -34,15 +39,12 @@ wss.on('connection', (ws) => {
                     playerId = result.player.id;
                     roomId = result.room.id;
                     break;
-
                 case 'move':
                     game.handleMove(roomId, playerId, data.direction);
                     break;
-
                 case 'placeBomb':
                     game.handlePlaceBomb(roomId, playerId);
                     break;
-
                 case 'chat':
                     game.handleChat(roomId, playerId, data.message);
                     break;
@@ -59,7 +61,7 @@ wss.on('connection', (ws) => {
     });
 });
 
-// Start backend server
+// Start the server
 server.listen(3000, () => {
-    console.log('Backend server running on port 3000');
+    console.log('Server running on port 3000');
 });
