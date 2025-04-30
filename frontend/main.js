@@ -1,7 +1,10 @@
-import { handleServerMessage } from "./events.js";
+import { handleServerMessage } from "./assets/events.js";
 
 // Connect to backend WebSocket server
-const socket = new WebSocket('ws://localhost:3000');
+// Use the appropriate URL based on the environment
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsUrl = `${protocol}//${window.location.hostname}:3000`;
+const socket = new WebSocket(wsUrl);
 
 // Game state
 let gameState = {
@@ -11,27 +14,11 @@ let gameState = {
     roomId: null
 };
 
-// Connection handlers
-socket.addEventListener('open', () => {
-    console.log('Connected to backend server');
-
-    // Join game after connection
-    const nickname = localStorage.getItem('nickname') ||
-        prompt('Enter your nickname:') ||
-        `Player${Math.floor(Math.random() * 1000)}`;
-
-    if (nickname) {
-        socket.send(JSON.stringify({
-            type: 'join_game',
-            nickname: nickname
-        }));
-    }
-});
-
 socket.addEventListener('message', (event) => {
     const data = JSON.parse(event.data);
     console.log('Received from server:', data);
     handleServerMessage(data);
 });
 
-// The rest of your main.js code remains unchanged
+// Export the socket for use in other modules
+export default socket;

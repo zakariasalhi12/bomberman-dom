@@ -1,9 +1,6 @@
 // client.js - Client-side code for Bomberman-DOM game
 // This file should be placed in the public directory so the server can serve it
 
-// Import the socket from main.js
-import socket from "../main.js";
-
 // Game constants
 const TILE_SIZE = 40; // Size of each tile in pixels
 const PLAYER_COLORS = ['#ff0000', '#00ff00', '#0000ff', '#ffff00']; // Red, Green, Blue, Yellow
@@ -18,6 +15,7 @@ let bombs = [];
 let explosions = [];
 let powerUps = [];
 let myPlayer = null;
+let ws = null;
 
 // DOM Elements
 const gameContainer = document.getElementById('game-container');
@@ -58,30 +56,60 @@ function showScreen(screen) {
     gameState = screen;
 }
 
+// Connect to WebSocket server
+function connectWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}`;
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+        console.log('Connected to server');
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        handleServerMessage(data);
+    };
+
+    ws.onclose = () => {
+        console.log('Disconnected from server');
+        // Attempt to reconnect after a short delay
+        setTimeout(connectWebSocket, 3000);
+    };
+
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+    };
+}
+
 // Join the game
 function joinGame() {
     const nickname = nicknameInput.value.trim() || `Player${Math.floor(Math.random() * 1000)}`;
 
-    if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-            type: 'join',
-            nickname
-        }));
-        localStorage.setItem('nickname', nickname);
-        showScreen('waiting');
-    } else {
-        console.error('WebSocket is not connected');
-        // Try to reconnect
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        connectWebSocket();
+        // Wait for connection to establish
         setTimeout(() => {
-            alert('Connection lost. Please refresh the page.');
+            sendJoinRequest(nickname);
         }, 500);
+    } else {
+        sendJoinRequest(nickname);
     }
+}
+
+// Send join request to server
+function sendJoinRequest(nickname) {
+    ws.send(JSON.stringify({
+        type: 'join_game',
+        nickname
+    }));
+
+    showScreen('waiting');
 }
 
 // Handle server messages
 export function handleServerMessage(data) {
     switch (data.type) {
-        case 'joined':
         case 'joined_game':
             playerId = data.playerId;
             roomId = data.roomId;
@@ -92,12 +120,12 @@ export function handleServerMessage(data) {
                 players.set(player.id, {
                     id: player.id,
                     nickname: player.nickname,
-                    x: player.x || 0,
-                    y: player.y || 0,
-                    lives: player.lives || 3,
-                    bombs: player.bombs || 1,
-                    range: player.range || 1,
-                    speed: player.speed || 1,
+                    x: 0,
+                    y: 0,
+                    lives: 3,
+                    bombs: 1,
+                    range: 1,
+                    speed: 1,
                     color: PLAYER_COLORS[players.size % PLAYER_COLORS.length],
                     element: null // Will hold the DOM element for this player
                 });
@@ -113,12 +141,12 @@ export function handleServerMessage(data) {
                 players.set(data.playerId, {
                     id: data.playerId,
                     nickname: data.nickname,
-                    x: data.x || 0,
-                    y: data.y || 0,
-                    lives: data.lives || 3,
-                    bombs: data.bombs || 1,
-                    range: data.range || 1,
-                    speed: data.speed || 1,
+                    x: 0,
+                    y: 0,
+                    lives: 3,
+                    bombs: 1,
+                    range: 1,
+                    speed: 1,
                     color: PLAYER_COLORS[players.size % PLAYER_COLORS.length],
                     element: null // Will hold the DOM element for this player
                 });
@@ -140,7 +168,6 @@ export function handleServerMessage(data) {
             break;
 
         case 'countdown_started':
-        case 'countdown':
             startCountdown(data.duration);
             break;
 
@@ -288,7 +315,6 @@ export function handleServerMessage(data) {
             break;
 
         case 'chat_message':
-        case 'chat':
             addChatMessage(data.nickname, data.message);
             break;
     }
@@ -769,10 +795,9 @@ function updatePlayerMovement(deltaTime) {
             // Update DOM position
             updatePlayerPosition(myPlayer);
 
-            // Send position update to server - align with backend's expected format
-            socket.send(JSON.stringify({
+            // Send position update to server
+            ws.send(JSON.stringify({
                 type: 'move',
-                direction: getDirectionFromMovement(movedX, movedY),
                 x: myPlayer.x,
                 y: myPlayer.y
             }));
@@ -783,17 +808,7 @@ function updatePlayerMovement(deltaTime) {
     }
 }
 
-function getDirectionFromMovement(x, y) {
-    if (Math.abs(x) > Math.abs(y)) {
-        // Movement is primarily horizontal
-        return x > 0 ? 'right' : 'left';
-    } else {
-        // Movement is primarily vertical
-        return y > 0 ? 'down' : 'up';
-    }
-}
-
-// Update player position in the DOM
+// Update player's DOM element position
 function updatePlayerPosition(player) {
     if (player.element) {
         player.element.style.left = `${player.x * TILE_SIZE}px`;
@@ -801,128 +816,135 @@ function updatePlayerPosition(player) {
     }
 }
 
-// Place bomb at player's position
-function placeBomb() {
-    if (!myPlayer || !socket) return;
+// Update player stats display
+function updatePlayerStats() {
+    if (!myPlayer) return;
 
-    // Round the position to get the tile coordinates
-    const bombX = Math.floor(myPlayer.x);
-    const bombY = Math.floor(myPlayer.y);
+    const livesElem = document.getElementById('player-lives');
+    const bombsElem = document.getElementById('player-bombs');
+    const rangeElem = document.getElementById('player-range');
+    const speedElem = document.getElementById('player-speed');
 
-    // Check if there's already a bomb at this position
-    const existingBomb = bombs.find(b => Math.floor(b.x) === bombX && Math.floor(b.y) === bombY);
-    if (existingBomb) return;
+    if (livesElem) livesElem.textContent = `Lives: ${myPlayer.lives}`;
+    if (bombsElem) bombsElem.textContent = `Bombs: ${myPlayer.bombs}`;
+    if (rangeElem) rangeElem.textContent = `Range: ${myPlayer.range}`;
+    if (speedElem) speedElem.textContent = `Speed: ${myPlayer.speed.toFixed(1)}x`;
 
-    // Send bomb placement to server
-    socket.send(JSON.stringify({
-        type: 'placeBomb',
-        x: bombX,
-        y: bombY
-    }));
+    // Update lives indicator on player element
+    if (myPlayer.element) {
+        const livesContainer = myPlayer.element.querySelector('.lives-container');
+        if (livesContainer) {
+            livesContainer.innerHTML = '';
+            for (let i = 0; i < myPlayer.lives; i++) {
+                const life = document.createElement('div');
+                life.className = 'life-indicator';
+                life.style.width = '8px';
+                life.style.height = '8px';
+                life.style.borderRadius = '50%';
+                life.style.backgroundColor = '#ff0000';
+                life.style.margin = '0 2px';
+                livesContainer.appendChild(life);
+            }
+        }
+    }
 }
 
-// Check if player has collected a power-up
+// Check if player is collecting a power-up
+// Check if player is collecting a power-up
 function checkPowerUpCollection() {
     if (!myPlayer) return;
 
     const playerTileX = Math.floor(myPlayer.x);
     const playerTileY = Math.floor(myPlayer.y);
 
-    for (let i = 0; i < powerUps.length; i++) {
-        const powerUp = powerUps[i];
-        if (Math.floor(powerUp.x) === playerTileX && Math.floor(powerUp.y) === playerTileY) {
-            // Send power-up collection to server
-            socket.send(JSON.stringify({
-                type: 'collectPowerUp',
-                powerUpId: powerUp.id
-            }));
+    for (const powerUp of powerUps) {
+        if (powerUp.x === playerTileX && powerUp.y === playerTileY) {
+            // Power-up automatically collected by server logic
+            // The server will send a 'powerup_collected' message
             break;
         }
     }
 }
 
-// Update player stats display
-function updatePlayerStats() {
+// Place bomb at current player position
+function placeBomb() {
     if (!myPlayer) return;
 
-    const livesElement = document.getElementById('player-lives');
-    const bombsElement = document.getElementById('player-bombs');
-    const rangeElement = document.getElementById('player-range');
-    const speedElement = document.getElementById('player-speed');
+    // Check if player can place more bombs
+    const activeBombs = bombs.filter(bomb => bomb.playerId === playerId).length;
+    if (activeBombs >= myPlayer.bombs) return;
 
-    if (livesElement) livesElement.textContent = `Lives: ${myPlayer.lives}`;
-    if (bombsElement) bombsElement.textContent = `Bombs: ${myPlayer.bombs}`;
-    if (rangeElement) rangeElement.textContent = `Range: ${myPlayer.range}`;
-    if (speedElement) speedElement.textContent = `Speed: ${myPlayer.speed.toFixed(1)}x`;
-}
+    const bombX = Math.floor(myPlayer.x);
+    const bombY = Math.floor(myPlayer.y);
 
-// Flash the screen for visual feedback
-function flashScreen(color) {
-    const flashOverlay = document.createElement('div');
-    flashOverlay.style.position = 'absolute';
-    flashOverlay.style.top = '0';
-    flashOverlay.style.left = '0';
-    flashOverlay.style.width = '100%';
-    flashOverlay.style.height = '100%';
-    flashOverlay.style.backgroundColor = color;
-    flashOverlay.style.opacity = '0.3';
-    flashOverlay.style.pointerEvents = 'none';
-    flashOverlay.style.zIndex = '100';
-    flashOverlay.style.animation = 'flash-animation 0.5s forwards';
-
-    // Add animation if not already present
-    if (!document.getElementById('flash-animation')) {
-        const style = document.createElement('style');
-        style.id = 'flash-animation';
-        style.textContent = `
-            @keyframes flash-animation {
-                0% { opacity: 0.3; }
-                100% { opacity: 0; }
-            }
-        `;
-        document.head.appendChild(style);
+    // Check if there's already a bomb at this position
+    for (const bomb of bombs) {
+        if (Math.floor(bomb.x) === bombX && Math.floor(bomb.y) === bombY) {
+            return;
+        }
     }
 
-    gameBoard.appendChild(flashOverlay);
-
-    // Remove after animation completes
-    setTimeout(() => {
-        if (flashOverlay.parentNode) {
-            flashOverlay.parentNode.removeChild(flashOverlay);
-        }
-    }, 500);
+    // Send bomb placement to server
+    ws.send(JSON.stringify({
+        type: 'place_bomb',
+        x: bombX,
+        y: bombY
+    }));
 }
 
 // Send chat message
 function sendChatMessage() {
     const message = chatInput.value.trim();
-    console.log("message", message)
-    if (message && socket) {
-        socket.send(JSON.stringify({
-            type: 'chat',
-            message: message
+
+    if (message && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'chat_message',
+            message
         }));
+
         chatInput.value = '';
     }
 }
 
 // Add chat message to chat container
-function addChatMessage(nickname, message) {
-    const chatMsg = document.createElement('div');
-    chatMsg.className = 'chat-message';
-    chatMsg.innerHTML = `<strong>${nickname}:</strong> ${message}`;
-    chatMessages.appendChild(chatMsg);
+export function addChatMessage(nickname, message) {
+    const msgElement = document.createElement('div');
+    msgElement.className = 'chat-message';
+    msgElement.innerHTML = `<span class="chat-nickname">${nickname}:</span> ${message}`;
+    console.warn(message, nickname);
+    chatMessages.appendChild(msgElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
-
-    // Limit chat history
-    while (chatMessages.childNodes.length > 50) {
-        chatMessages.removeChild(chatMessages.firstChild);
-    }
 }
 
-// Reset game to join a new one
+// Visual feedback for player damage
+function flashScreen(color) {
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = color;
+    overlay.style.opacity = '0.5';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.zIndex = '9999';
+    document.body.appendChild(overlay);
+
+    // Fade out and remove
+    setTimeout(() => {
+        overlay.style.transition = 'opacity 500ms';
+        overlay.style.opacity = '0';
+
+        setTimeout(() => {
+            document.body.removeChild(overlay);
+        }, 500);
+    }, 100);
+}
+
+// Reset game and return to login screen
 function resetGame() {
-    // Clear all game data
+    playerId = null;
+    roomId = null;
     players.clear();
     map = [];
     bombs = [];
@@ -930,148 +952,23 @@ function resetGame() {
     powerUps = [];
     myPlayer = null;
 
-    // Clear DOM elements
-    gameBoard.innerHTML = '';
+    // Close WebSocket connection
+    if (ws) {
+        ws.close();
+        ws = null;
+    }
 
-    // Go back to login screen
+    // Clear game board
+    if (gameBoard) {
+        gameBoard.innerHTML = '';
+    }
+
+    // Show login screen
     showScreen('login');
-
-    // Restore nickname from local storage if available
-    const savedNickname = localStorage.getItem('nickname');
-    if (savedNickname) {
-        nicknameInput.value = savedNickname;
-    }
 }
 
-// Add event listeners for touch controls (mobile support)
-function setupTouchControls() {
-    // Create touch controls container
-    const touchControls = document.createElement('div');
-    touchControls.id = 'touch-controls';
-    touchControls.style.position = 'absolute';
-    touchControls.style.bottom = '10px';
-    touchControls.style.left = '50%';
-    touchControls.style.transform = 'translateX(-50%)';
-    touchControls.style.display = 'flex';
-    touchControls.style.flexDirection = 'column';
-    touchControls.style.alignItems = 'center';
-    touchControls.style.zIndex = '1000';
+// // Initialize WebSocket connection
+// connectWebSocket();
 
-    // Create D-pad
-    const dpad = document.createElement('div');
-    dpad.className = 'dpad';
-    dpad.style.display = 'grid';
-    dpad.style.gridTemplateColumns = 'repeat(3, 50px)';
-    dpad.style.gridTemplateRows = 'repeat(3, 50px)';
-    dpad.style.gap = '2px';
-
-    // Create d-pad buttons
-    const buttonStyles = {
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-        backgroundColor: 'rgba(255, 255, 255, 0.5)',
-        borderRadius: '5px',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        fontSize: '24px',
-        userSelect: 'none',
-        cursor: 'pointer'
-    };
-
-    // Add buttons to the d-pad
-    for (let i = 0; i < 9; i++) {
-        const cell = document.createElement('div');
-        Object.assign(cell.style, buttonStyles);
-
-        if (i === 1) { // Up
-            cell.innerHTML = '&uarr;';
-            cell.addEventListener('touchstart', () => { keyState.ArrowUp = true; });
-            cell.addEventListener('touchend', () => { keyState.ArrowUp = false; });
-        } else if (i === 3) { // Left
-            cell.innerHTML = '&larr;';
-            cell.addEventListener('touchstart', () => { keyState.ArrowLeft = true; });
-            cell.addEventListener('touchend', () => { keyState.ArrowLeft = false; });
-        } else if (i === 5) { // Right
-            cell.innerHTML = '&rarr;';
-            cell.addEventListener('touchstart', () => { keyState.ArrowRight = true; });
-            cell.addEventListener('touchend', () => { keyState.ArrowRight = false; });
-        } else if (i === 7) { // Down
-            cell.innerHTML = '&darr;';
-            cell.addEventListener('touchstart', () => { keyState.ArrowDown = true; });
-            cell.addEventListener('touchend', () => { keyState.ArrowDown = false; });
-        } else if (i === 4) { // Center - Bomb
-            cell.innerHTML = '💣';
-            cell.addEventListener('touchstart', () => {
-                placeBomb();
-                keyState.Space = true;
-            });
-            cell.addEventListener('touchend', () => { keyState.Space = false; });
-        } else {
-            cell.style.backgroundColor = 'transparent';
-        }
-
-        dpad.appendChild(cell);
-    }
-
-    touchControls.appendChild(dpad);
-    gameScreen.appendChild(touchControls);
-
-    // Only show touch controls on mobile
-    if (isMobile()) {
-        touchControls.style.display = 'flex';
-    } else {
-        touchControls.style.display = 'none';
-    }
-}
-
-// Check if device is mobile
-function isMobile() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
-
-// Handle window resize
-function handleResize() {
-    // Only scale the game board if it's larger than the viewport
-    const gameContainer = document.getElementById('game-container');
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-
-    if (gameBoard && map.length > 0) {
-        const boardWidth = map[0].length * TILE_SIZE;
-        const boardHeight = map.length * TILE_SIZE;
-
-        // Calculate scale to fit the game in the viewport
-        let scale = 1;
-        if (boardWidth > viewportWidth * 0.9 || boardHeight > viewportHeight * 0.8) {
-            const scaleX = (viewportWidth * 0.9) / boardWidth;
-            const scaleY = (viewportHeight * 0.8) / boardHeight;
-            scale = Math.min(scaleX, scaleY);
-        }
-
-        // Apply scale transform
-        gameBoard.style.transform = `scale(${scale})`;
-        gameBoard.style.transformOrigin = 'top left';
-
-        // Adjust container size
-        if (gameContainer) {
-            gameContainer.style.width = `${boardWidth * scale}px`;
-            gameContainer.style.height = `${boardHeight * scale}px`;
-        }
-    }
-}
-
-// Initialize the game when the window loads
-window.addEventListener('load', () => {
-    initGame();
-    setupTouchControls();
-    window.addEventListener('resize', handleResize);
-});
-
-// Export functions to be used in other modules
-export {
-    updatePlayerPosition,
-    placeBomb,
-    addChatMessage
-};
+// // Initialize game
+// window.onload = initGame;
