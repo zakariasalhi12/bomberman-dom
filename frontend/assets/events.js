@@ -80,6 +80,7 @@ function joinGame() {
 
 // Handle server messages
 export function handleServerMessage(data) {
+    console.warn(data)
     switch (data.type) {
         case 'joined':
         case 'joined_game':
@@ -171,12 +172,13 @@ export function handleServerMessage(data) {
             break;
 
         case 'player_moved':
-            if (players.has(data.playerId) && data.playerId !== playerId) {
-                const player = players.get(data.playerId);
-                player.x = data.x;
-                player.y = data.y;
-                updatePlayerPosition(player);
-            }
+            console.warn("moved");
+            // if (players.has(data.playerId) && data.playerId !== playerId) {
+            // }
+            const player = players.get(data.playerId);
+            player.x = data.x;
+            player.y = data.y;
+            updatePlayerPosition(player);
             break;
 
         case 'bomb_placed':
@@ -309,6 +311,7 @@ function initializeGameBoard() {
         for (let x = 0; x < map[y].length; x++) {
             const tile = document.createElement('div');
             tile.className = 'map-tile';
+            tile.setAttribute("type", `${map[y][x]}`)
             tile.id = `tile-${x}-${y}`;
             tile.style.position = 'absolute';
             tile.style.left = `${x * TILE_SIZE}px`;
@@ -322,10 +325,10 @@ function initializeGameBoard() {
                     tile.style.backgroundColor = '#8aac70'; // Green grass
                     break;
                 case 1: // Wall
-                    tile.style.backgroundColor = '#666666'; // Gray wall
+                    tile.style.backgroundColor = '#a67c52'; // Gray wall
                     break;
                 case 2: // Block
-                    tile.style.backgroundColor = '#a67c52'; // Brown block
+                    tile.style.backgroundColor = '#666666'; // Brown block
                     break;
             }
 
@@ -507,7 +510,25 @@ function addExplosionToBoard(explosion) {
 
         gameBoard.appendChild(explosionTile);
         explosion.elements.push(explosionTile);
+        map[tile.y][tile.x]--;
     });
+    explosion.tiles.forEach(tile => {
+        const brick = document.querySelector(`#tile-${tile.x}-${tile.y}`);
+        const type = brick.getAttribute('type');
+        brick.type = type - 1;
+        // console.warn(type);
+        switch (type - 1) {
+            case 0: // Empty
+                brick.style.backgroundColor = '#8aac70'; // Green grass
+                break;
+            case 1: // Wall
+                brick.style.backgroundColor = '#a67c52'; // Gray wall
+                break;
+            case 2: // Block
+                brick.style.backgroundColor = '#666666'; // Brown block
+                break;
+        }
+    })
 
     // Add animation style if not already present
     if (!document.getElementById('explosion-animations')) {
@@ -630,25 +651,25 @@ function handleKeyDown(event) {
         case 'ArrowUp':
         case 'KeyW':
             keyState.ArrowUp = true;
-            event.preventDefault();
+            // event.preventDefault();
             break;
 
         case 'ArrowDown':
         case 'KeyS':
             keyState.ArrowDown = true;
-            event.preventDefault();
+            // event.preventDefault();
             break;
 
         case 'ArrowLeft':
         case 'KeyA':
             keyState.ArrowLeft = true;
-            event.preventDefault();
+            // event.preventDefault();
             break;
 
         case 'ArrowRight':
         case 'KeyD':
             keyState.ArrowRight = true;
-            event.preventDefault();
+            // event.preventDefault();
             break;
 
         case 'Space':
@@ -657,7 +678,7 @@ function handleKeyDown(event) {
                 placeBomb();
             }
             keyState.Space = true;
-            event.preventDefault();
+            // event.preventDefault();
             break;
     }
 }
@@ -762,24 +783,29 @@ function updatePlayerMovement(deltaTime) {
         }
 
         // Update position if no collision
-        if (!hasCollision) {
-            myPlayer.x = newX;
-            myPlayer.y = newY;
+        // if (!hasCollision) {
+        myPlayer.x = newX;
+        myPlayer.y = newY;
 
-            // Update DOM position
-            updatePlayerPosition(myPlayer);
+        // Update DOM position
+        // updatePlayerPosition(myPlayer);
 
-            // Send position update to server - align with backend's expected format
-            socket.send(JSON.stringify({
-                type: 'move',
-                direction: getDirectionFromMovement(movedX, movedY),
-                x: myPlayer.x,
-                y: myPlayer.y
-            }));
-
-            // Check for power-up collection
-            checkPowerUpCollection();
-        }
+        // Send position update to server - align with backend's expected format
+        socket.send(JSON.stringify({
+            type: 'move',
+            direction: getDirectionFromMovement(movedX, movedY),
+            x: myPlayer.x,
+            y: myPlayer.y
+        }));
+        // console.warn("move", JSON.stringify({
+        //     type: 'move',
+        //     direction: getDirectionFromMovement(movedX, movedY),
+        //     x: myPlayer.x,
+        //     y: myPlayer.y
+        // }))
+        // Check for power-up collection
+        checkPowerUpCollection();
+        // }
     }
 }
 

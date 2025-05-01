@@ -1,5 +1,5 @@
 import http from "http";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import { Game } from './game/game.js';
 
 // Create plain HTTP server
@@ -29,7 +29,24 @@ const game = new Game((room, message, exclude) => {
 wss.on('connection', (ws) => {
     let playerId = null;
     let roomId = null;
+    handlerConnections(ws, playerId, roomId);
+    ws.on('close', () => {
+        if (roomId && playerId) {
+            const room = game.rooms.get(roomId);
+            room.players.delete(playerId);
+            game.handleDisconnect(roomId, playerId);
+        }
+    });
+});
 
+// Start the server
+server.listen(3000, () => {
+    console.log('Server running on port 3000');
+});
+
+
+
+function handlerConnections(ws, playerId, roomId) {
     ws.on('message', (message) => {
         try {
             const data = JSON.parse(message);
@@ -40,6 +57,7 @@ wss.on('connection', (ws) => {
                     roomId = result.room.id;
                     break;
                 case 'move':
+                    // console.warn("moving");
                     game.handleMove(roomId, playerId, data.direction);
                     break;
                 case 'placeBomb':
@@ -48,20 +66,11 @@ wss.on('connection', (ws) => {
                 case 'chat':
                     game.handleChat(roomId, playerId, data.message);
                     break;
+                case 'newability':
+                    break;
             }
         } catch (err) {
             console.error('Error processing message:', err);
         }
     });
-
-    ws.on('close', () => {
-        if (roomId && playerId) {
-            game.handleDisconnect(roomId, playerId);
-        }
-    });
-});
-
-// Start the server
-server.listen(3000, () => {
-    console.log('Server running on port 3000');
-});
+}

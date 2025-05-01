@@ -7,6 +7,7 @@ import { GAME_STATES, MAX_PLAYERS, WAITING_TIMEOUT, COUNTDOWN_DURATION, LIVES } 
 // const { getStartingPosition } = require('../utils/utils.js');
 
 const POWERUP_TYPES = ['bomb', 'flame', 'speed'];
+const TILE_SIZE = 40;
 
 export class Game {
     constructor(broadcastCallback) {
@@ -30,7 +31,7 @@ export class Game {
                     row.push(1);
                 } else if (x % 2 === 0 && y % 2 === 0) {
                     // Inner walls in grid pattern
-                    row.push(1);
+                    row.push(2);
                 } else {
                     // Randomly place destructible blocks (70% chance)
                     // But ensure corners are clear for player starting positions
@@ -43,7 +44,7 @@ export class Game {
                     if (isCornerArea) {
                         row.push(0); // Keep corners empty
                     } else {
-                        row.push(Math.random() < 0.7 ? 2 : 0);
+                        row.push(Math.random() < 0.7 ? 1 : 0);
                     }
                 }
             }
@@ -181,10 +182,10 @@ export class Game {
             })),
             map: room.map
         });
-
     }
 
     updateGame(room) {
+        // console.warn(room.map[])
         // Update bomb timers and handle explosions
         const explodedBombs = [];
 
@@ -247,6 +248,9 @@ export class Game {
 
                 // Destroy blocks and spawn power-ups
                 for (const tile of affectedTiles) {
+                    if (room.map[tile.x][tile.y] > 0) {
+                        room.map[tile.x][tile.y]--
+                    }
                     if (tile.x >= 0 && tile.x < room.map[0].length &&
                         tile.y >= 0 && tile.y < room.map.length) {
                         if (room.map[tile.y][tile.x] === 2) {
@@ -384,16 +388,19 @@ export class Game {
         newX = Math.max(0, Math.min(room.map[0].length - 1, newX));
         newY = Math.max(0, Math.min(room.map.length - 1, newY));
 
-        // Update position if valid
-        player.x = newX;
-        player.y = newY;
 
-        this.broadcastToRoom(room, {
-            type: 'player_moved',
-            playerId,
-            x: player.x,
-            y: player.y
-        }, player.socket);
+        if (this.isWalkable(room, Math.floor(newX), Math.floor(newY))) {
+            console.warn("moved");
+            player.x = newX;
+            player.y = newY;
+            this.broadcastToRoom(room, {
+                type: 'player_moved',
+                playerId,
+                x: player.x,
+                y: player.y
+            });
+        }
+
     }
 
     handlePlaceBomb(roomId, playerId) {
@@ -471,6 +478,35 @@ export class Game {
             }
         }
     }
+    isWalkable(room, x, y) {
+        // Check boundaries
+        if (x < 0 || y < 0 || y >= room.map.length || x >= room.map[0].length) {
+            return false;
+        }
+
+        // Check tile type
+        const tile = room.map[y][x];
+        if (tile === 1 || tile === 2) {
+            return false; // Wall or destructible block
+        }
+
+        // Check if another player is on the tile
+        for (const player of room.players.values()) {
+            if (Math.floor(player.x) === x && Math.floor(player.y) === y) {
+                return false;
+            }
+        }
+
+        // TODO: optionally check for bombs
+        for (const bomb of room.bombs) {
+            if (bomb.x === x && bomb.y === y) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
 }
 
 // Generate starting positions for players
@@ -485,4 +521,7 @@ export function getStartingPosition(playerIndex, mapWidth, mapHeight) {
     return positions[playerIndex] || positions[0];
 }
 
-// export { Game };
+// // export { Game };
+// function checkcollision(map, playerstate) {
+
+// }
