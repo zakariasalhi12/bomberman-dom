@@ -4,6 +4,7 @@ import Player from './player.js';
 // const require = createRequire(import.meta.url);
 
 import { GAME_STATES, MAX_PLAYERS, WAITING_TIMEOUT, COUNTDOWN_DURATION, LIVES } from './constants.js';
+import { match } from 'type-is';
 // const { getStartingPosition } = require('../utils/utils.js');
 
 const POWERUP_TYPES = ['bomb', 'flame', 'speed'];
@@ -28,7 +29,7 @@ export class Game {
                 // 0 = empty, 1 = wall (indestructible), 2 = block (destructible)
                 if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
                     // Border walls
-                    row.push(1);
+                    row.push(2);
                 } else if (x % 2 === 0 && y % 2 === 0) {
                     // Inner walls in grid pattern
                     row.push(2);
@@ -248,24 +249,21 @@ export class Game {
 
                 // Destroy blocks and spawn power-ups
                 for (const tile of affectedTiles) {
-                    if (room.map[tile.x][tile.y] > 0) {
-                        room.map[tile.x][tile.y]--
-                    }
-                    if (tile.x >= 0 && tile.x < room.map[0].length &&
-                        tile.y >= 0 && tile.y < room.map.length) {
-                        if (room.map[tile.y][tile.x] === 2) {
-                            room.map[tile.y][tile.x] = 0;
+                    // if (tile.x >= 0 && tile.x < room.map[0].length &&
+                    //     tile.y >= 0 && tile.y < room.map.length) {
+                    if (room.map[tile.y][tile.x] === 1) {
+                        room.map[tile.y][tile.x] = 0;
 
-                            if (Math.random() < 0.3) {
-                                const powerType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
-                                room.powerUps.push({
-                                    x: tile.x,
-                                    y: tile.y,
-                                    type: powerType
-                                });
-                            }
+                        if (Math.random() < 0.3) {
+                            const powerType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+                            room.powerUps.push({
+                                x: tile.x,
+                                y: tile.y,
+                                type: powerType
+                            });
                         }
                     }
+                    // }
                 }
 
                 // Send explosion data
@@ -355,11 +353,11 @@ export class Game {
 
                 const tileType = room.map[newY][newX];
 
-                if (tileType === 1) break;
+                if (tileType === 2) break;
 
                 affectedTiles.push({ x: newX, y: newY });
 
-                if (tileType === 2) break;
+                // if (tileType === 2) break;
             }
         }
 
@@ -387,10 +385,11 @@ export class Game {
         // Check boundaries and collisions
         newX = Math.max(0, Math.min(room.map[0].length - 1, newX));
         newY = Math.max(0, Math.min(room.map.length - 1, newY));
+        let walkable;
+        ({ walkable, newX, newY } = this.isWalkable(room, newX, newY, direction));
 
-
-        if (this.isWalkable(room, Math.floor(newX), Math.floor(newY))) {
-            console.warn("moved");
+        if (walkable) {
+            // console.warn("moved");
             player.x = newX;
             player.y = newY;
             this.broadcastToRoom(room, {
@@ -478,33 +477,72 @@ export class Game {
             }
         }
     }
-    isWalkable(room, x, y) {
-        // Check boundaries
-        if (x < 0 || y < 0 || y >= room.map.length || x >= room.map[0].length) {
-            return false;
-        }
+    isWalkable(room, x, y, direction) {
+        console.log(x, y, room.map[Math.floor(y)][Math.ceil(x)]);
 
+        // Check boundaries
+        if (x < 0 || y < 0 || y > 13 || x > 13) {
+            console.warn("bondaries");
+            return { walkable: false, x, y };
+        }
+        let tile = null;
+        switch (direction) {
+            case "up":
+                tile = room.map[Math.floor(y)][Math.floor(x)];
+                break;
+            case "down":
+                tile = room.map[Math.ceil(y)][Math.ceil(x)];
+                break;
+            case "left":
+                tile = room.map[Math.ceil(y)][Math.floor(x)];
+                break;
+            case "right":
+                tile = room.map[Math.floor(y)][Math.ceil(x)];
+                break;
+
+        }
         // Check tile type
-        const tile = room.map[y][x];
         if (tile === 1 || tile === 2) {
-            return false; // Wall or destructible block
+            let newx = 0;
+            let newy = 0;
+            switch (direction) {
+                case "up":
+                    newx = Math.floor(x);
+                    newy = Math.floor(y);
+                    break;
+                case "down":
+                    newx = Math.ceil(x);
+                    newy = Math.ceil(y);
+                    break;
+                case "left":
+                    newx = Math.floor(x);
+                    newy = Math.ceil(y);
+                    break;
+                case "right":
+                    newx = Math.ceil(x);
+                    newy = Math.floor(y);
+                    break;
+
+            }
+            return { walkable: false, newx, newy }; // Wall or destructible block
         }
 
         // Check if another player is on the tile
-        for (const player of room.players.values()) {
-            if (Math.floor(player.x) === x && Math.floor(player.y) === y) {
-                return false;
-            }
-        }
+        // for (const player of room.players.values()) {
+        //     if (Math.floor(player.x) === x && Math.floor(player.y) === y) {
+        //         console.warn("other player")
+        //         return false;
+        //     }
+        // }
 
-        // TODO: optionally check for bombs
-        for (const bomb of room.bombs) {
-            if (bomb.x === x && bomb.y === y) {
-                return false;
-            }
-        }
+        // // TODO: optionally check for bombs
+        // for (const bomb of room.bombs) {
+        //     if (bomb.x === x && bomb.y === y) {
+        //         return false;
+        //     }
+        // }
 
-        return true;
+        return { walkable: true, x, y };
     }
 
 }

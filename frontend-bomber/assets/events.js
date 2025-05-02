@@ -325,9 +325,11 @@ function initializeGameBoard() {
                     tile.style.backgroundColor = '#8aac70'; // Green grass
                     break;
                 case 1: // Wall
+                    tile.classList.add('soft-wall');
                     tile.style.backgroundColor = '#a67c52'; // Gray wall
                     break;
                 case 2: // Block
+                    tile.classList.add('hard-wall');
                     tile.style.backgroundColor = '#666666'; // Brown block
                     break;
             }
@@ -520,12 +522,6 @@ function addExplosionToBoard(explosion) {
         switch (type - 1) {
             case 0: // Empty
                 brick.style.backgroundColor = '#8aac70'; // Green grass
-                break;
-            case 1: // Wall
-                brick.style.backgroundColor = '#a67c52'; // Gray wall
-                break;
-            case 2: // Block
-                brick.style.backgroundColor = '#666666'; // Brown block
                 break;
         }
     })
