@@ -385,10 +385,9 @@ export class Game {
         // Check boundaries and collisions
         newX = Math.max(0, Math.min(room.map[0].length - 1, newX));
         newY = Math.max(0, Math.min(room.map.length - 1, newY));
-        let walkable;
-        ({ walkable, newX, newY } = this.isWalkable(room, newX, newY, direction));
 
-        if (walkable) {
+
+        if (this.isWalkable(room, newX, newY, direction)) {
             // console.warn("moved");
             player.x = newX;
             player.y = newY;
@@ -483,7 +482,7 @@ export class Game {
         // Check boundaries
         if (x < 0 || y < 0 || y > 13 || x > 13) {
             console.warn("bondaries");
-            return { walkable: false, x, y };
+            return false;
         }
         let tile = null;
         switch (direction) {
@@ -503,28 +502,8 @@ export class Game {
         }
         // Check tile type
         if (tile === 1 || tile === 2) {
-            let newx = 0;
-            let newy = 0;
-            switch (direction) {
-                case "up":
-                    newx = Math.floor(x);
-                    newy = Math.floor(y);
-                    break;
-                case "down":
-                    newx = Math.ceil(x);
-                    newy = Math.ceil(y);
-                    break;
-                case "left":
-                    newx = Math.floor(x);
-                    newy = Math.ceil(y);
-                    break;
-                case "right":
-                    newx = Math.ceil(x);
-                    newy = Math.floor(y);
-                    break;
 
-            }
-            return { walkable: false, newx, newy }; // Wall or destructible block
+            return false; // Wall or destructible block
         }
 
         // Check if another player is on the tile
@@ -542,7 +521,7 @@ export class Game {
         //     }
         // }
 
-        return { walkable: true, x, y };
+        return true;
     }
 
 }
