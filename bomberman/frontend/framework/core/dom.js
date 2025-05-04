@@ -89,12 +89,15 @@ function render(componentTitle, componentFn, props = {}) {
   let rootElement = document.getElementById("root");
   componentStates.clear();
   if (!rootElement) {
-    rootElement = document.createElement("div");
-    rootElement.id = "root";
-    document.body.appendChild(rootElement);
-  } else {
-    rootElement.innerHTML = "";
+    rootElement = document.querySelector(".game-root");
+    if (!rootElement) {
+      rootElement = document.createElement("div");
+      rootElement.id = "root";
+      rootElement.className = "game-root";
+      document.body.appendChild(rootElement);
+    }
   }
+  rootElement.innerHTML = "";
 
   if (!componentStates.has(componentTitle)) {
     componentStates.set(componentTitle, {

@@ -473,7 +473,7 @@ export class Game {
             playerId,
             nickname: player.nickname,
             message: message.substring(0, 200)
-        }, player.socket);
+        });
     }
 
     handleDisconnect(socket) {
@@ -549,6 +549,32 @@ export class Game {
         // }
 
         return true;
+    }
+
+    cleanup() {
+        // Clear all game intervals
+        for (const room of this.rooms.values()) {
+            if (room.gameInterval) {
+                clearInterval(room.gameInterval);
+            }
+            if (room.waitingTimeout) {
+                clearTimeout(room.waitingTimeout);
+            }
+            if (room.countdownTimeout) {
+                clearTimeout(room.countdownTimeout);
+            }
+
+            // Notify all players in the room
+            this.broadcastToRoom(room, { type: 'game_terminated' });
+
+            // Clear room data
+            room.players.clear();
+            room.bombs = [];
+            room.powerUps = [];
+        }
+
+        // Clear all rooms
+        this.rooms.clear();
     }
 
 }

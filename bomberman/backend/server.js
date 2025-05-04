@@ -69,10 +69,64 @@ wss.on('connection', (socket) => {
     });
 });
 
-process.on('SIGINT', () => {
-    console.log('Shutting down server...');
-    wss.close(() => {
-        console.log('Server shut down');
-        process.exit(0);
+// Graceful shutdown handler
+let isShuttingDown = false;
+
+async function cleanup() {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
+    console.log('Starting graceful shutdown...');
+
+    // Close all WebSocket connections
+    wss.clients.forEach(client => {
+        try {
+            client.send(JSON.stringify({ type: 'server_shutdown' }));
+            client.close();
+        } catch (e) {
+            console.error('Error closing client connection:', e);
+        }
     });
+
+    // Clean up game resources
+    try {
+        game.cleanup();
+    } catch (e) {
+        console.error('Error cleaning up game:', e);
+    }
+
+    // Close WebSocket server
+    return new Promise((resolve) => {
+        wss.close(() => {
+            console.log('WebSocket server closed');
+            resolve();
+        });
+    });
+}
+
+// Handle different termination signals
+process.on('SIGINT', async () => {
+    console.log('Received SIGINT signal');
+    await cleanup();
+    process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+    console.log('Received SIGTERM signal');
+    await cleanup();
+    process.exit(0);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', async (error) => {
+    console.error('Uncaught Exception:', error);
+    await cleanup();
+    process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', async (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    await cleanup();
+    process.exit(1);
 });

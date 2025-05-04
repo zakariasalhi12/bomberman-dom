@@ -1,6 +1,10 @@
 import { jsx, useState, useRef, useEffect, Div, H2, Input, Button, P, Ul, Li, Span } from '../framework/index.js';
 import componentStack from '../framework/core/componentStack.js';
 
+// Game constants
+const LIVES = 3;
+const TILE_SIZE = 40;
+
 function GameApp() {
     // Set component title
     const COMPONENT_TITLE = 'GameApp';
@@ -417,11 +421,52 @@ function GameApp() {
     }
 
     function WaitingScreen() {
-        return Div({ className: 'waiting-screen' }, [
-            jsx('img', { src: '../img/output-waiting.gif', alt: 'Waiting...', className: 'waiting-gif' }),
-            P({ className: 'waiting-msg' }, 'Looking for a match...'),
-            P({ className: 'player-count' }, [
-                'Players: ', jsx('span', { id: 'player-count-num' }, players.length || 1), '/4'
+        return Div({
+            className: 'waiting-screen',
+            style: {
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '400px',
+                padding: '40px',
+                backgroundColor: '#1a1a1a',
+                borderRadius: '12px',
+                boxShadow: '0 4px 32px rgba(0, 0, 0, 0.25)'
+            }
+        }, [
+            jsx('img', {
+                src: './images/output-waiting.gif',
+                alt: 'Waiting...',
+                className: 'waiting-gif',
+                style: {
+                    width: '200px',
+                    height: '200px',
+                    objectFit: 'contain',
+                    marginBottom: '20px'
+                }
+            }),
+            P({
+                className: 'waiting-msg',
+                style: {
+                    fontSize: '24px',
+                    color: '#fff',
+                    marginBottom: '10px'
+                }
+            }, 'Looking for a match...'),
+            P({
+                className: 'player-count',
+                style: {
+                    fontSize: '18px',
+                    color: '#aaa'
+                }
+            }, [
+                'Players: ',
+                jsx('span', {
+                    id: 'player-count-num',
+                    style: { color: '#fff', fontWeight: 'bold' }
+                }, players.length || 1),
+                '/4'
             ])
         ]);
     }
@@ -444,58 +489,56 @@ function GameApp() {
     }
 
     function renderMap() {
-        console.log('renderMap called, map state:', map);
+        if (!map) return null;
 
-        if (!map) {
-            console.log('Map is null, cannot render');
-            return null;
-        }
-
-        if (!Array.isArray(map) || !Array.isArray(map[0])) {
-            console.error('Invalid map structure:', map);
-            return null;
-        }
-
-        console.log('Map dimensions:', map.length, 'x', map[0].length);
-
-        const tiles = [];
-        for (let y = 0; y < map.length; y++) {
-            for (let x = 0; x < map[y].length; x++) {
-                const cell = map[y][x];
-                const tileType = getTileType(cell);
-                console.log(`Rendering tile at ${x},${y}: type=${tileType}, value=${cell}`);
-
-                tiles.push(Div({
-                    className: `tile ${tileType}`,
-                    key: `${x}-${y}`,
-                    'data-x': x,
-                    'data-y': y,
-                    style: {
-                        backgroundColor: getTileBackground(cell),
-                        width: '40px',
-                        height: '40px',
-                        position: 'relative',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center'
-                    }
-                }, [
-                    cell !== 0 && jsx('img', {
-                        src: getTileImage(cell),
-                        alt: tileType,
-                        style: {
-                            width: '32px',
-                            height: '32px',
-                            display: 'block',
-                            objectFit: 'contain'
-                        }
+        return Div({
+            className: 'game-board'
+        }, [
+            Div({
+                className: 'game-map',
+                style: {
+                    position: 'relative',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(15, 40px)',
+                    gridTemplateRows: 'repeat(15, 40px)',
+                    gap: '0px',
+                    padding: '0px',
+                    backgroundColor: '#333',
+                    borderRadius: '8px',
+                    boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.3)'
+                }
+            }, [
+                ...map.flatMap((row, y) =>
+                    row.map((cell, x) => {
+                        const tileType = getTileType(cell);
+                        const tileImage = getTileImage(cell);
+                        return Div({
+                            className: `tile ${tileType}`,
+                            style: {
+                                width: '40px',
+                                height: '40px',
+                                position: 'relative',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                backgroundColor: getTileBackground(cell),
+                                border: '1px solid #444'
+                            }
+                        }, [
+                            tileImage && jsx('img', {
+                                src: tileImage,
+                                alt: tileType,
+                                style: {
+                                    width: '32px',
+                                    height: '32px',
+                                    objectFit: 'contain'
+                                }
+                            })
+                        ]);
                     })
-                ]));
-            }
-        }
-
-        console.log('Generated tiles:', tiles.length);
-        return tiles;
+                )
+            ])
+        ]);
     }
 
     function getTileBackground(cell) {
@@ -520,7 +563,7 @@ function GameApp() {
         switch (cell) {
             case 2: return './images/wallBlack.png';  // Indestructible wall
             case 1: return './images/wall.png';       // Destructible block
-            default: return null;
+            default: return null;                     // Empty space
         }
     }
 
@@ -535,164 +578,180 @@ function GameApp() {
             className: 'players-container',
             style: {
                 position: 'absolute',
-                top: '0',
-                left: '0',
-                width: '100%',
-                height: '100%',
+                top: '20px',  // Match the game board padding
+                left: '20px', // Match the game board padding
+                width: 'calc(100% - 40px)', // Account for padding
+                height: 'calc(100% - 40px)', // Account for padding
                 pointerEvents: 'none'
             }
         }, players.map((player, idx) => {
-            console.log(`Rendering player ${player.id} at ${player.x},${player.y}`);
-            const isCurrentPlayer = player.id === playerId;
+            console.log(`Rendering player ${idx}:`, player);
+            const playerImages = [
+                './images/redcaracter.png',
+                './images/bluecaracter.png',
+                './images/greencaracter.png',
+                './images/yellowcaracter.png'
+            ];
 
             return Div({
-                className: `player player-${idx + 1}${isCurrentPlayer ? ' current-player' : ''}`,
+                className: `player player-${idx + 1}`,
                 key: player.id,
                 style: {
                     position: 'absolute',
+                    left: `${player.x * TILE_SIZE + TILE_SIZE / 2}px`,
+                    top: `${player.y * TILE_SIZE + TILE_SIZE / 2}px`,
+                    transform: 'translate(-50%, -50%)',
                     width: '36px',
                     height: '36px',
-                    left: `${player.x * 40}px`,
-                    top: `${player.y * 40}px`,
-                    transform: 'translate(2px, 2px)',
-                    transition: 'all 0.15s ease-out',
-                    zIndex: isCurrentPlayer ? 101 : 100
+                    zIndex: '100'
                 }
             }, [
                 jsx('img', {
-                    src: getPlayerImage(idx),
-                    alt: `Player ${player.nickname}`,
+                    src: playerImages[idx % playerImages.length],
+                    alt: `Player ${idx + 1}`,
                     style: {
                         width: '100%',
                         height: '100%',
                         objectFit: 'contain'
                     }
                 }),
-                jsx('div', {
+                Div({
                     className: 'player-nickname',
                     style: {
-                        opacity: isCurrentPlayer ? 1 : 0.8
+                        position: 'absolute',
+                        top: '-20px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        whiteSpace: 'nowrap',
+                        color: 'white',
+                        textShadow: '0 0 4px black',
+                        fontSize: '12px',
+                        background: 'rgba(0, 0, 0, 0.5)',
+                        padding: '2px 6px',
+                        borderRadius: '4px'
                     }
                 }, player.nickname)
             ]);
         }));
     }
 
-    function getPlayerImage(playerIndex) {
-        const playerImages = [
-            './images/greencaracter.png',
-            './images/redcaracter.png',
-            './images/bluecaracter.png',
-            './images/yellowcaracter.png'
-        ];
-        return playerImages[playerIndex % playerImages.length];
-    }
-
-    function renderBombs() {
-        return bombs.map(bomb =>
-            Div({
-                className: 'bomb',
-                style: {
-                    position: 'absolute',
-                    left: bomb.x * 40 + 8 + 'px',
-                    top: bomb.y * 40 + 8 + 'px',
-                    width: '24px',
-                    height: '24px',
-                    zIndex: 15
-                }
+    function renderPlayerList() {
+        return Ul({
+            className: 'player-list'
+        }, players.map(player => {
+            const isCurrentPlayer = player.id === playerId;
+            return Li({
+                className: `player-list-item ${isCurrentPlayer ? 'current-player' : ''}`,
+                key: player.id
             }, [
                 jsx('img', {
-                    src: './images/bomb.png',
-                    alt: 'bomb',
-                    style: { width: '100%', height: '100%' }
-                })
-            ])
-        );
+                    className: 'player-avatar',
+                    src: './images/playerStyle.png',
+                    alt: player.nickname
+                }),
+                Span({}, player.nickname),
+                Span({ className: 'player-stats' }, [
+                    ...Array(player.lives).fill(null).map((_, i) =>
+                        jsx('img', {
+                            key: i,
+                            className: 'heart-icon',
+                            src: './images/heart.png',
+                            alt: 'life'
+                        })
+                    ),
+                    ` B:${player.bombs} R:${player.range} S:${player.speed.toFixed(1)}`
+                ])
+            ]);
+        }));
     }
 
-    function renderPowerUps() {
-        return powerUps.map(powerUp =>
-            Div({
-                className: 'powerup',
-                style: {
-                    position: 'absolute',
-                    left: powerUp.x * 40 + 10 + 'px',
-                    top: powerUp.y * 40 + 10 + 'px',
-                    width: '20px',
-                    height: '20px',
-                    zIndex: 12
-                }
-            }, [
-                jsx('img', {
-                    src: powerUp.type === 'speed' ? './images/speed.webp' : powerUp.type === 'flame' ? './images/spoil_tileset.webp' : './images/bomb.png',
-                    alt: powerUp.type,
-                    style: { width: '100%', height: '100%' }
-                })
-            ])
-        );
-    }
-
-    function Sidebar() {
-        const playerImages = [
-            './images/greencaracter.png',
-            './images/redcaracter.png',
-            './images/yellowcaracter.png',
-            './images/bluecaracter.png',
-        ];
-        return Div({ className: 'sidebar' }, [
-            jsx('h3', {}, 'Players'),
-            Ul({ className: 'player-list' },
-                players.map((player, idx) =>
-                    Li({ className: 'player-list-item' }, [
-                        jsx('img', { src: playerImages[idx % playerImages.length], alt: 'avatar', className: 'player-avatar' }),
-                        Span({ className: 'player-nickname' }, ` ${player.nickname} `),
-                        ...Array(player.lives).fill().map(() => jsx('img', { src: './images/heart.png', alt: 'life', className: 'heart-icon' })),
-                        Span({ className: 'player-stats' }, ` | 💣 ${player.bombs} | 🔥 ${player.range} | ⚡ ${player.speed?.toFixed(1)}`)
-                    ])
-                )
-            ),
-            ChatUI()
-        ]);
-    }
-
-    function ChatUI() {
-        let chatInputValue = '';
-        function handleChatInput(e) {
-            chatInputValue = e.target.value;
-        }
-        function handleChatSubmit(e) {
-            e.preventDefault();
-            if (chatInputValue.trim()) {
-                sendMessage({
-                    type: 'chat',
-                    roomId,
-                    playerId,
-                    message: chatInputValue
-                });
-                chatInputValue = '';
-            }
-        }
+    function renderChat() {
         return Div({ className: 'chat-container' }, [
             Div({ className: 'chat-messages' },
-                chatMessages.map(msg =>
-                    Div({ className: 'chat-message' }, [
-                        Span({ className: 'chat-nick' }, `${msg.nickname}:`),
+                chatMessages.map((msg, i) =>
+                    Div({ className: 'chat-message', key: i }, [
+                        Span({ className: 'chat-nick' }, msg.nickname + ': '),
                         Span({ className: 'chat-text' }, msg.message)
                     ])
                 )
             ),
-            jsx('form', { className: 'chat-form', onsubmit: handleChatSubmit }, [
+            jsx('form', {
+                className: 'chat-form',
+                onsubmit: (e) => {
+                    e.preventDefault();
+                    const input = e.target.elements[0];
+                    const message = input.value.trim();
+                    if (message) {
+                        sendMessage({
+                            type: 'chat',
+                            roomId,
+                            playerId,
+                            message
+                        });
+                        input.value = '';
+                    }
+                }
+            }, [
                 Input({
-                    type: 'text',
                     className: 'chat-input',
-                    placeholder: 'Type a message...'
+                    type: 'text',
+                    placeholder: 'Type a message...',
+                    maxLength: 200
                 })
             ])
         ]);
     }
 
+    function renderBomb(bomb) {
+        return Div({
+            className: 'bomb',
+            key: bomb.id,
+            style: {
+                left: `${bomb.x * TILE_SIZE}px`,
+                top: `${bomb.y * TILE_SIZE}px`
+            }
+        }, [
+            jsx('img', {
+                src: './images/bomb.png',
+                alt: 'bomb',
+                style: {
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain'
+                }
+            })
+        ]);
+    }
+
+    function renderPowerUp(powerUp) {
+        const powerUpImages = {
+            'bomb': './images/bomb.png',
+            'flame': './images/explosion.png',
+            'speed': './images/speed.webp'
+        };
+
+        return Div({
+            className: `powerup powerup-${powerUp.type}`,
+            key: `${powerUp.x}-${powerUp.y}`,
+            style: {
+                left: `${powerUp.x * TILE_SIZE}px`,
+                top: `${powerUp.y * TILE_SIZE}px`
+            }
+        }, [
+            jsx('img', {
+                src: powerUpImages[powerUp.type],
+                alt: powerUp.type,
+                style: {
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain'
+                }
+            })
+        ]);
+    }
+
     // --- Main Render ---
-    return Div({ className: 'game-root' }, [
+    return Div({ className: 'game-app' }, [
         !joined && LoginForm(),
         joined && waiting && WaitingScreen(),
         joined && Countdown(),
@@ -700,37 +759,24 @@ function GameApp() {
             className: 'game-container'
         }, [
             Div({
-                className: 'game-board'
+                className: 'game-board-container'
             }, [
                 GameStatusMessage(),
-                Div({
-                    className: 'game-map',
-                    style: {
-                        position: 'relative',
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(15, 40px)',
-                        gridTemplateRows: 'repeat(15, 40px)',
-                        gap: '0px',
-                        padding: '0px',
-                        backgroundColor: '#333',
-                        borderRadius: '8px',
-                        boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.3)'
-                    }
-                }, [
-                    renderMap(),
-                    renderPlayers(),
-                    renderBombs(),
-                    renderPowerUps()
-                ])
+                renderMap(),
+                renderPlayers(),
+                bombs.map(bomb => renderBomb(bomb)),
+                powerUps.map(powerUp => renderPowerUp(powerUp))
             ]),
             showSidebar && Div({
-                className: 'sidebar-container'
+                className: 'sidebar'
             }, [
-                Sidebar()
+                H2({}, 'Players'),
+                renderPlayerList(),
+                renderChat()
             ])
         ]),
         gameOver && GameOverScreen()
     ]);
 }
 
-export default GameApp; 
+export default GameApp;
