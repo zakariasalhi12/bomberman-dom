@@ -518,8 +518,8 @@ function GameApp() {
 
     function getTileImage(cell) {
         switch (cell) {
-            case 2: return '../images/wallBlack.png';  // Indestructible wall
-            case 1: return '../images/wall.png';       // Destructible block
+            case 2: return './images/wallBlack.png';  // Indestructible wall
+            case 1: return './images/wall.png';       // Destructible block
             default: return null;
         }
     }
