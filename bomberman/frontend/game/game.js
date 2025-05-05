@@ -152,32 +152,32 @@ function GameApp() {
         return pos;
     }
 
-    function isValidMove(pos) {
-        if (!map) return false;
+    // function isValidMove(pos) {
+    //     if (!map) return false;
 
-        // Check boundaries
-        if (pos.x < 0 || pos.x >= map[0].length || pos.y < 0 || pos.y >= map.length) {
-            return false;
-        }
+    //     // Check boundaries
+    //     if (pos.x < 0 || pos.x >= map[0].length || pos.y < 0 || pos.y >= map.length) {
+    //         return false;
+    //     }
 
-        // Check walls and blocks
-        const tile = map[Math.floor(pos.y)][Math.floor(pos.x)];
-        if (tile === 1 || tile === 2) {
-            return false;
-        }
+    //     // Check walls and blocks
+    //     const tile = map[Math.floor(pos.y)][Math.floor(pos.x)];
+    //     if (tile === 1 || tile === 2) {
+    //         return false;
+    //     }
 
-        // Check other players
-        const playerCollision = players.some(p =>
-            p.x === Math.floor(pos.x) && p.y === Math.floor(pos.y)
-        );
+    //     // Check other players
+    //     const playerCollision = players.some(p =>
+    //         p.x === Math.floor(pos.x) && p.y === Math.floor(pos.y)
+    //     );
 
-        // Check bombs
-        const bombCollision = bombs.some(b =>
-            b.x === Math.floor(pos.x) && b.y === Math.floor(pos.y)
-        );
+    //     // Check bombs
+    //     const bombCollision = bombs.some(b =>
+    //         b.x === Math.floor(pos.x) && b.y === Math.floor(pos.y)
+    //     );
 
-        return !playerCollision && !bombCollision;
-    }
+    //     return !playerCollision && !bombCollision;
+    // }
 
     // --- Server Message Handler ---
     function handleServerMessage(data) {
