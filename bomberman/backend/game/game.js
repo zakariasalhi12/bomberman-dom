@@ -314,6 +314,7 @@ export class Game {
 
                 // Send explosion data
                 this.broadcastToRoom(room, {
+                    id: bomb.id,
                     type: 'explosion',
                     x: bomb.x,
                     y: bomb.y,

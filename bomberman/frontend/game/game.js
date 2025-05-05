@@ -377,7 +377,7 @@ function GameApp() {
                     break;
                 case 'explosion':
                     console.log('Explosion:', data);
-                    setBombs(prev => prev.filter(b => b.id !== data.bombId));
+                    setBombs(prev => prev.filter(b => b.id !== data.id));
                     if (data.tiles) {
                         setMap(prev => {
                             if (!prev) return prev;
@@ -652,8 +652,8 @@ function GameApp() {
                 style: {
                     position: 'relative',
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(15, 40px)',
-                    gridTemplateRows: 'repeat(15, 40px)',
+                    gridTemplateColumns: `repeat(${map[0].length}, ${TILE_SIZE}px)`,
+                    gridTemplateRows: `repeat(${map.length}, ${TILE_SIZE}px)`,
                     gap: '0px',
                     padding: '0px',
                     backgroundColor: '#333',
@@ -665,6 +665,19 @@ function GameApp() {
                     row.map((cell, x) => {
                         const tileType = getTileType(cell);
                         const tileImage = getTileImage(cell);
+
+                        // Check if there's a bomb at this position
+                        const bombAtPosition = bombs?.find(bomb => bomb.x === x && bomb.y === y);
+
+                        // Check if there's a power-up at this position
+                        const powerUpAtPosition = powerUps?.find(powerUp => powerUp.x === x && powerUp.y === y);
+
+                        // Check if there's an explosion at this position
+                        const explosionsArray = Array.from(explosionsRef.current.values());
+                        const explosionAtPosition = explosionsArray.find(
+                            explosion => explosion.x === x && explosion.y === y
+                        );
+
                         return Div({
                             className: `tile ${tileType}`,
                             style: {
@@ -678,22 +691,72 @@ function GameApp() {
                                 border: '1px solid #444'
                             }
                         }, [
-                            tileImage && jsx('img', {
+                            // First render the tile background if it's not empty
+                            (tileImage && jsx('img', {
                                 src: tileImage,
                                 alt: tileType,
                                 style: {
                                     width: '32px',
                                     height: '32px',
-                                    objectFit: 'contain'
+                                    objectFit: 'contain',
+                                    position: 'absolute'
+                                }
+                            })),
+
+                            // If there's an explosion, render it on top
+                            explosionAtPosition && Div({
+                                className: 'explosion',
+                                style: {
+                                    position: 'absolute',
+                                    width: '40px',
+                                    height: '40px',
+                                    opacity: 1 - ((Date.now() - explosionAtPosition.startTime) / explosionAtPosition.duration),
+                                    background: 'radial-gradient(circle, rgba(255,255,0,0.8) 0%, rgba(255,0,0,0.8) 100%)',
+                                    borderRadius: '50%',
+                                    zIndex: 85
+                                }
+                            }),
+
+                            // If there's a power-up, render it
+                            powerUpAtPosition && jsx('img', {
+                                src: getPowerUpImage(powerUpAtPosition.type),
+                                alt: powerUpAtPosition.type,
+                                style: {
+                                    width: '32px',
+                                    height: '32px',
+                                    objectFit: 'contain',
+                                    position: 'absolute',
+                                    zIndex: 75
+                                }
+                            }),
+
+                            // If there's a bomb, render it on top of everything else
+                            bombAtPosition && jsx('img', {
+                                src: './images/bomb.png',
+                                alt: 'bomb',
+                                style: {
+                                    width: '32px',
+                                    height: '32px',
+                                    objectFit: 'contain',
+                                    position: 'absolute',
+                                    zIndex: 80
                                 }
                             })
                         ]);
                     })
                 )
-            ]),
-            // Render active explosions
-            Array.from(explosionsRef.current.values()).map(explosion => renderExplosion(explosion))
+            ])
         ]);
+    }
+
+    // Helper function to get power-up images
+    function getPowerUpImage(type) {
+        switch (type) {
+            case 'bomb': return './images/bomb.png';
+            case 'flame': return './images/explosion.png';
+            case 'speed': return './images/speed.webp';
+            default: return './images/powerup.png';
+        }
     }
 
     function getTileBackground(cell) {
