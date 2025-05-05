@@ -182,7 +182,7 @@ function GameApp() {
     function sendMessage(message) {
         const socket = socketRef.current;
         if (socket && socket.readyState === window.WebSocket.OPEN) {
-            console.warn(message)
+            // console.warn(message)
             socket.send(JSON.stringify(message));
         }
     }
@@ -365,9 +365,8 @@ function GameApp() {
                             : p
                     ));
                     break;
-
                 case 'bomb_placed':
-                    console.log('Bomb placed:', data);
+                    console.warn('Bomb placed:', data);
                     setBombs(prev => [...prev, {
                         id: data.bombId,
                         x: data.x,
@@ -376,7 +375,6 @@ function GameApp() {
                         placedAt: Date.now()
                     }]);
                     break;
-
                 case 'explosion':
                     console.log('Explosion:', data);
                     setBombs(prev => prev.filter(b => b.id !== data.bombId));
@@ -393,7 +391,6 @@ function GameApp() {
                         });
                     }
                     break;
-
                 case 'countdown_started':
                     console.log('Countdown started with duration:', data.duration);
                     setWaitingTimeout(null);
@@ -440,18 +437,11 @@ function GameApp() {
     }
 
     // Add debug logging for state changes
-    // useEffect(() => {
-    //     console.log('Game state updated:', {
-    //         joined,
-    //         waiting,
-    //         playerId,
-    //         roomId,
-    //         players,
-    //         map,
-    //         countdown,
-    //         showSidebar
-    //     });
-    // }, [joined, waiting, playerId, roomId, players, map, countdown, showSidebar]);
+    useEffect(() => {
+        console.log('Game state updated:', {
+            bombs
+        });
+    }, [bombs]);
 
     // Add state change debugging
     // useEffect(() => {
@@ -480,7 +470,7 @@ function GameApp() {
 
     // Add keyboard event handling
     useEffect(() => {
-        console.warn("keydown")
+        // console.warn("keydown")
         // if (joined && !waiting && !gameOver) {
         window.addEventListener('keydown', handleKeyDown);
         // // return () => window.removeEventListener('keydown', handleKeyDown);
@@ -872,8 +862,12 @@ function GameApp() {
             className: 'bomb',
             key: bomb.id,
             style: {
-                left: `${bomb.x * TILE_SIZE}px`,
-                top: `${bomb.y * TILE_SIZE}px`
+                position: 'absolute', // Add this - it was missing
+                width: '40px',        // Add explicit width
+                height: '40px',       // Add explicit height
+                zIndex: '80',         // Lower than player z-index (100)
+                left: `${bomb.x * TILE_SIZE + TILE_SIZE + 8 / 2}px`,
+                top: `${bomb.y * TILE_SIZE + TILE_SIZE + 8 / 2}px`
             }
         }, [
             jsx('img', {
@@ -933,7 +927,7 @@ function GameApp() {
                 renderMap(),
                 renderPlayers(),
                 bombs.map(bomb => renderBomb(bomb)),
-                powerUps.map(powerUp => renderPowerUp(powerUp))
+                powerUps.map(powerUp => renderPowerUp(powerUp)),
             ]),
             showSidebar && Div({
                 className: 'sidebar'

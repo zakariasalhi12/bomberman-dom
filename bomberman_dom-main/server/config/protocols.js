@@ -1,0 +1,22 @@
+export const SOCKET_TYPES = {
+  PLAYER_JOIN: "newPlayer",
+  PLAYER_MOVE: "playerMove",
+  PLAYER_PLACE_BOMB: "placeBomb",
+  PLAYER_HIT_BY_EXPLOSION: "HitByExplosion",
+  PLAYER_CHAT: "chatMsg",
+  PLAYER_UPDATE: "updatePlayers",
+  GAME_START: "startGame",
+  ADD_POWERUP: "powerupAdded",
+  PLAYER_REMOVE: "removePlayer",
+  WINNER: "theWinnerIs",
+  PUT_BOMB: "drawBomb",
+  REMOVE_BOMB: "removeBomb",
+  EXPLOSION: "drawExplosion",
+  WALL_DESTROY: "destroyWall",
+  PLAYER_LIVES: "hearts",
+  PLAYER_DATA: "brodcastplayerinfo",
+  PLAYER_DEATH: "playerDead",
+  powerup_COLLECTED: "powerupCollected",
+  PLAYER_STATS: "playerStatsUpdate",
+};
+

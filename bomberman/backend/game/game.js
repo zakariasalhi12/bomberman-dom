@@ -422,10 +422,10 @@ export class Game {
         let newY = player.y;
 
         switch (direction) {
-            case 'up': newY -= player.speed * 0.1; break;
-            case 'down': newY += player.speed * 0.1; break;
-            case 'left': newX -= player.speed * 0.1; break;
-            case 'right': newX += player.speed * 0.1; break;
+            case 'up': newY -= 1; break;
+            case 'down': newY += 1; break;
+            case 'left': newX -= 1; break;
+            case 'right': newX += 1; break;
         }
 
         // Check boundaries and collisions
@@ -477,7 +477,7 @@ export class Game {
             x: bomb.x,
             y: bomb.y,
             playerId
-        }, player.socket);
+        });
     }
 
     handleChat(roomId, playerId, message) {
@@ -530,6 +530,7 @@ export class Game {
             console.warn("bondaries");
             return false;
         }
+
         let tile = null;
         switch (direction) {
             case "up":
@@ -546,19 +547,24 @@ export class Game {
                 break;
 
         }
-        // Check tile type
-        if (tile === 1 || tile === 2) {
+        let ifbomb = false;
+        room.bombs?.forEach(bomb => {
+            if (bomb.x == x && bomb.y == y) ifbomb = true
+        });
 
+
+        // Check tile type
+        if (tile === 1 || tile === 2 || ifbomb) {
             return false; // Wall or destructible block
         }
 
         // Check if another player is on the tile
-        // for (const player of room.players.values()) {
-        //     if (Math.floor(player.x) === x && Math.floor(player.y) === y) {
-        //         console.warn("other player")
-        //         return false;
-        //     }
-        // }
+        for (const player of room.players.values()) {
+            if (Math.floor(player.x) === x && Math.floor(player.y) === y) {
+                console.warn("other player")
+                return false;
+            }
+        }
 
         // // TODO: optionally check for bombs
         // for (const bomb of room.bombs) {
