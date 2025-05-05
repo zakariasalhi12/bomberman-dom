@@ -135,7 +135,7 @@ function GameApp() {
         }
 
         console.log('Connecting to WebSocket server...');
-        const socket = new WebSocket('ws://localhost:8080');
+        const socket = new WebSocket(`ws://${window.location.hostname}:8080`);
         socketRef.current = socket;
 
         socket.onopen = () => {
@@ -754,7 +754,7 @@ function GameApp() {
     // Helper function to get power-up images
     function getPowerUpImage(type) {
         switch (type) {
-            case 'bomb': return './images/bomb.png';
+            case 'bomb': return './images/spoil_tileset.webp';
             case 'flame': return './images/explosion.png';
             case 'speed': return './images/speed.webp';
             default: return './images/powerup.png';
