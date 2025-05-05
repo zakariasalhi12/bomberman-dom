@@ -297,7 +297,6 @@ function GameApp() {
                     break;
 
                 case 'countdown_started':
-                    console.log('Countdown started:', data);
                     setCountdown(data.duration);
                     setWaiting(false);
                     break;
@@ -413,7 +412,6 @@ function GameApp() {
                     value: nickname,
                     oninput: handleInput,
                     required: true,
-                    style: { marginBottom: '12px', width: '200px' }
                 }),
                 Button({ type: 'submit' }, 'Join Game')
             ])
@@ -598,8 +596,8 @@ function GameApp() {
                 key: player.id,
                 style: {
                     position: 'absolute',
-                    left: `${player.x * TILE_SIZE + TILE_SIZE / 2}px`,
-                    top: `${player.y * TILE_SIZE + TILE_SIZE / 2}px`,
+                    left: `${player.x * TILE_SIZE + TILE_SIZE + 8 / 2}px`,
+                    top: `${player.y * TILE_SIZE + TILE_SIZE + 8 / 2}px`,
                     transform: 'translate(-50%, -50%)',
                     width: '36px',
                     height: '36px',
