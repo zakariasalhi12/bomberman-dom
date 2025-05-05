@@ -39,9 +39,94 @@ function GameApp() {
     // --- Refs ---
     const socketRef = useRef(null);
     const statusTimeoutRef = useRef(null);
+    const gameLoopRef = useRef(null);
+    const lastFrameTimeRef = useRef(0);
+    const FPS = 60;
+    const frameInterval = 1000 / FPS;
+    const explosionsRef = useRef(new Map()); // Store active explosions
 
     // Clean up component stack
     componentStack.pop();
+
+    // Game loop using requestAnimationFrame
+    useEffect(() => {
+        let animationFrameId;
+
+        function gameLoop(timestamp) {
+            // Calculate delta time
+            if (!lastFrameTimeRef.current) {
+                lastFrameTimeRef.current = timestamp;
+            }
+            const deltaTime = timestamp - lastFrameTimeRef.current;
+
+            // Only update if enough time has passed (for 60fps)
+            if (deltaTime >= frameInterval) {
+                lastFrameTimeRef.current = timestamp - (deltaTime % frameInterval);
+
+                // Update game state
+                // Update player positions
+                setPlayers(prevPlayers => {
+                    return prevPlayers.map(player => {
+                        // Add any player movement logic here
+                        return player;
+                    });
+                });
+
+                // Update bombs and handle explosions
+                setBombs(prevBombs => {
+                    const currentTime = Date.now();
+                    const newBombs = prevBombs.filter(bomb => {
+                        // Check if bomb should explode
+                        if (currentTime - bomb.placedAt >= 3000) { // 3 seconds timer
+                            // Create explosion effect
+                            const explosion = {
+                                id: bomb.id,
+                                x: bomb.x,
+                                y: bomb.y,
+                                range: bomb.range,
+                                startTime: currentTime,
+                                duration: 500 // Explosion animation duration in ms
+                            };
+                            explosionsRef.current.set(bomb.id, explosion);
+                            return false; // Remove bomb
+                        }
+                        return true;
+                    });
+
+                    // Update explosion animations
+                    const currentExplosions = explosionsRef.current;
+                    for (const [id, explosion] of currentExplosions.entries()) {
+                        if (currentTime - explosion.startTime >= explosion.duration) {
+                            currentExplosions.delete(id);
+                        }
+                    }
+
+                    return newBombs;
+                });
+
+                // Update powerups
+                setPowerUps(prevPowerUps => {
+                    return prevPowerUps.map(powerUp => {
+                        // Add any powerup update logic here
+                        return powerUp;
+                    });
+                });
+            }
+
+            // Schedule next frame
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game loop
+        animationFrameId = requestAnimationFrame(gameLoop);
+
+        // Cleanup
+        return () => {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+        };
+    }, []); // Empty dependency array means it runs once on mount and cleans up on unmount
 
     // --- WebSocket Connection ---
     function connectToServer() {
@@ -97,6 +182,7 @@ function GameApp() {
     function sendMessage(message) {
         const socket = socketRef.current;
         if (socket && socket.readyState === window.WebSocket.OPEN) {
+            console.warn(message)
             socket.send(JSON.stringify(message));
         }
     }
@@ -354,50 +440,51 @@ function GameApp() {
     }
 
     // Add debug logging for state changes
-    useEffect(() => {
-        console.log('Game state updated:', {
-            joined,
-            waiting,
-            playerId,
-            roomId,
-            players,
-            map,
-            countdown,
-            showSidebar
-        });
-    }, [joined, waiting, playerId, roomId, players, map, countdown, showSidebar]);
+    // useEffect(() => {
+    //     console.log('Game state updated:', {
+    //         joined,
+    //         waiting,
+    //         playerId,
+    //         roomId,
+    //         players,
+    //         map,
+    //         countdown,
+    //         showSidebar
+    //     });
+    // }, [joined, waiting, playerId, roomId, players, map, countdown, showSidebar]);
 
     // Add state change debugging
-    useEffect(() => {
-        console.log('Game state changed:', {
-            map,
-            players,
-            bombs,
-            powerUps,
-            countdown,
-            gameOver,
-            waiting,
-            joined
-        });
-    }, [map, players, bombs, powerUps, countdown, gameOver, waiting, joined]);
+    // useEffect(() => {
+    //     console.log('Game state changed:', {
+    //         map,
+    //         players,
+    //         bombs,
+    //         powerUps,
+    //         countdown,
+    //         gameOver,
+    //         waiting,
+    //         joined
+    //     });
+    // }, [map, players, bombs, powerUps, countdown, gameOver, waiting, joined]);
 
-    // Add game state effect
-    useEffect(() => {
-        if (map && players.length > 0) {
-            console.log('Game state updated:', {
-                mapSize: [map[0].length, map.length],
-                playerCount: players.length,
-                currentPlayerId: playerId
-            });
-        }
-    }, [map, players, playerId]);
+    // // Add game state effect
+    // useEffect(() => {
+    //     if (map && players.length > 0) {
+    //         console.log('Game state updated:', {
+    //             mapSize: [map[0].length, map.length],
+    //             playerCount: players.length,
+    //             currentPlayerId: playerId
+    //         });
+    //     }
+    // }, [map, players, playerId]);
 
     // Add keyboard event handling
     useEffect(() => {
-        if (joined && !waiting && !gameOver) {
-            window.addEventListener('keydown', handleKeyDown);
-            // return () => window.removeEventListener('keydown', handleKeyDown);
-        }
+        console.warn("keydown")
+        // if (joined && !waiting && !gameOver) {
+        window.addEventListener('keydown', handleKeyDown);
+        // // return () => window.removeEventListener('keydown', handleKeyDown);
+        // }
     }, [joined, waiting, gameOver, roomId, playerId, map, players]);
 
     // Status message fade out
@@ -410,18 +497,18 @@ function GameApp() {
     }
 
     // Add debug render information
-    console.log('Current state:', {
-        nickname,
-        joined,
-        waiting,
-        playerId,
-        roomId,
-        players,
-        map,
-        countdown,
-        statusMsg,
-        showSidebar
-    });
+    // console.log('Current state:', {
+    //     nickname,
+    //     joined,
+    //     waiting,
+    //     playerId,
+    //     roomId,
+    //     players,
+    //     map,
+    //     countdown,
+    //     statusMsg,
+    //     showSidebar
+    // });
 
     // Add countdown effect
     useEffect(() => {
@@ -519,10 +606,12 @@ function GameApp() {
     }
 
     function EliminatedScreen() {
-        return Div({className : "eliminated-screen"}, [
-            H1({style :  {
-                color: "white"
-            }}  , "You Are Eliminated"),
+        return Div({ className: "eliminated-screen" }, [
+            H1({
+                style: {
+                    color: "white"
+                }
+            }, "You Are Eliminated"),
             Button({ onclick: () => window.location.reload() }, 'Play Again')
         ]);
     }
@@ -535,6 +624,31 @@ function GameApp() {
         return waitingTimeout !== null && waitingTimeout > 0 && countdown === null
             ? Div({ className: 'waiting-timeout-countdown' }, `Game will start in ${waitingTimeout / 1000} seconds if no more players join...`)
             : null;
+    }
+
+    // Add explosion rendering function
+    function renderExplosion(explosion) {
+        const currentTime = Date.now();
+        const elapsed = currentTime - explosion.startTime;
+        const progress = Math.min(elapsed / explosion.duration, 1);
+        const alpha = 1 - progress; // Fade out effect
+
+        return Div({
+            className: 'explosion',
+            key: explosion.id,
+            style: {
+                position: 'absolute',
+                left: `${explosion.x * TILE_SIZE}px`,
+                top: `${explosion.y * TILE_SIZE}px`,
+                width: `${TILE_SIZE}px`,
+                height: `${TILE_SIZE}px`,
+                opacity: alpha,
+                background: 'radial-gradient(circle, rgba(255,255,0,0.8) 0%, rgba(255,0,0,0.8) 100%)',
+                borderRadius: '50%',
+                zIndex: 90,
+                transition: 'opacity 0.5s ease-out'
+            }
+        });
     }
 
     function renderMap() {
@@ -586,7 +700,9 @@ function GameApp() {
                         ]);
                     })
                 )
-            ])
+            ]),
+            // Render active explosions
+            Array.from(explosionsRef.current.values()).map(explosion => renderExplosion(explosion))
         ]);
     }
 
@@ -825,7 +941,7 @@ function GameApp() {
                 H2({}, 'Players'),
                 renderPlayerList(),
                 renderChat()
-            ]),
+            ])
         ]),
     ]);
 }
