@@ -1,12 +1,8 @@
-import express from 'express';
 import { WebSocketServer } from 'ws';
 import GameService from './services/gameService.js';
 import RoomService from './services/roomService.js';
 import WebSocketService from './services/websocketService.js';
 import { Game } from './game/game.js';
-
-const app = express();
-const port = 8080;
 
 // Initialize services
 const gameService = new GameService();
@@ -14,9 +10,10 @@ const roomService = new RoomService(gameService);
 const websocketService = new WebSocketService(roomService, gameService);
 
 // Create WebSocket server
+const port = 8080;
 const wss = new WebSocketServer({ port });
 
-console.log('Server is running at http://localhost:8080');
+console.log('WebSocket server is running at ws://localhost:8080');
 
 function broadcastToRoom(room, message, excludeSocket = null) {
     console.log('Broadcasting to room:', {
@@ -104,7 +101,7 @@ async function cleanup() {
     });
 }
 
-// Handle different termination signals
+// Handle termination signals and errors
 process.on('SIGINT', async () => {
     console.log('Received SIGINT signal');
     await cleanup();
@@ -117,14 +114,12 @@ process.on('SIGTERM', async () => {
     process.exit(0);
 });
 
-// Handle uncaught exceptions
 process.on('uncaughtException', async (error) => {
     console.error('Uncaught Exception:', error);
     await cleanup();
     process.exit(1);
 });
 
-// Handle unhandled promise rejections
 process.on('unhandledRejection', async (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
     await cleanup();
