@@ -4,7 +4,6 @@ import Player from './player.js';
 // const require = createRequire(import.meta.url);
 
 import { GAME_STATES, MAX_PLAYERS, WAITING_TIMEOUT, COUNTDOWN_DURATION, LIVES } from './constants.js';
-import { match } from 'type-is';
 // const { getStartingPosition } = require('../utils/utils.js');
 
 const POWERUP_TYPES = ['bomb', 'flame', 'speed'];
@@ -273,7 +272,11 @@ export class Game {
                                 }
 
                                 // Remove player
-                                room.players.delete(playerId);
+                                // room.players.delete(playerId);
+                                const playersocket = room.players.get(playerId)
+                                playersocket.socket.send(JSON.stringify({
+                                    type: 'eliminated',
+                                }))
                                 this.broadcastToRoom(room, {
                                     type: 'player_eliminated',
                                     playerId

@@ -1,4 +1,4 @@
-import { jsx, useState, useRef, useEffect, Div, H2, Input, Button, P, Ul, Li, Span } from '../framework/index.js';
+import { jsx, useState, useRef, useEffect, Div, H2, Input, Button, P, Ul, Li, Span, render, H1 } from '../framework/index.js';
 import componentStack from '../framework/core/componentStack.js';
 
 // Game constants
@@ -26,6 +26,8 @@ function GameApp() {
     const [chatMessages, setChatMessages] = useState([]);
     const [gameOver, setGameOver] = useState(null);
     const [showSidebar, setShowSidebar] = useState(false);
+    const [eliminated, setEliminated] = useState(false);
+
     const [playerPositions, setPlayerPositions] = useState(new Map());
     const [waitingTimeout, setWaitingTimeout] = useState(null);
     const gameStateRef = useRef({
@@ -189,6 +191,7 @@ function GameApp() {
                 case 'joined_game':
                     console.log('Player joined game:', data);
                     setPlayerId(data.playerId);
+
                     setRoomId(data.roomId);
                     if (data.map) {
                         console.log('Setting initial map:', data.map);
@@ -310,6 +313,10 @@ function GameApp() {
                 case 'player_damaged':
                     setPlayers((prev) => prev.map(p => p.id === data.playerId ? { ...p, lives: data.livesLeft } : p));
                     break;
+                case 'eliminated':
+                    window.removeEventListener('keydown', handleKeyDown);
+                    setEliminated(true)
+                    break;
                 case 'player_eliminated':
                     setPlayers((prev) => prev.filter(p => p.id !== data.playerId));
                     setStatusMsg('A player was eliminated!');
@@ -322,6 +329,7 @@ function GameApp() {
                     break;
                 case 'game_over':
                     setGameOver(data);
+
                     break;
                 case 'chat_message':
                     setChatMessages((prev) => [...prev, data]);
@@ -336,6 +344,13 @@ function GameApp() {
             setStatusMsg('Error processing game update');
             setStatusType('error');
         }
+    }
+
+    function SetPlayerEliminated() {
+        return Div({ className: 'game_over_container' }, [
+            H2({}, 'You Are eliminated '),
+            // Button({ type: 'submit' , onclick: window.location.reload()}, 'Bach to home')
+        ])
     }
 
     // Add debug logging for state changes
@@ -381,7 +396,7 @@ function GameApp() {
     useEffect(() => {
         if (joined && !waiting && !gameOver) {
             window.addEventListener('keydown', handleKeyDown);
-            return () => window.removeEventListener('keydown', handleKeyDown);
+            // return () => window.removeEventListener('keydown', handleKeyDown);
         }
     }, [joined, waiting, gameOver, roomId, playerId, map, players]);
 
@@ -502,11 +517,11 @@ function GameApp() {
         return countdown !== null && Div({ className: 'countdown' }, `Game starting in ${countdown}...`);
     }
 
-    function GameOverScreen() {
-        if (!gameOver) return null;
-        return Div({ className: 'game-over' }, [
-            jsx('h1', {}, 'Game Over'),
-            jsx('p', {}, gameOver.winner ? `Winner: ${gameOver.winnerNickname}` : 'Draw!'),
+    function EliminatedScreen() {
+        return Div({className : "game_over_container"}, [
+            H1({style :  {
+                color: "white"
+            }}  , "You Are Eliminated"),
             Button({ onclick: () => window.location.reload() }, 'Play Again')
         ]);
     }
@@ -795,6 +810,7 @@ function GameApp() {
             Div({
                 className: 'game-board-container'
             }, [
+                eliminated && EliminatedScreen(),
                 GameStatusMessage(),
                 renderMap(),
                 renderPlayers(),
@@ -807,9 +823,8 @@ function GameApp() {
                 H2({}, 'Players'),
                 renderPlayerList(),
                 renderChat()
-            ])
+            ]),
         ]),
-        gameOver && GameOverScreen()
     ]);
 }
 
