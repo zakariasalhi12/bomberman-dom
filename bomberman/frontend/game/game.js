@@ -27,6 +27,7 @@ function GameApp() {
     const [gameOver, setGameOver] = useState(null);
     const [showSidebar, setShowSidebar] = useState(false);
     const [playerPositions, setPlayerPositions] = useState(new Map());
+    const [waitingTimeout, setWaitingTimeout] = useState(null);
     const gameStateRef = useRef({
         isMoving: false,
         lastUpdate: Date.now(),
@@ -130,9 +131,9 @@ function GameApp() {
             const currentPlayer = players.find(p => p.id === playerId);
             if (currentPlayer) {
                 const newPos = calculateNewPosition(currentPlayer, direction);
-                if (isValidMove(newPos)) {
-                    sendMessage({ type: 'move', roomId, playerId, direction });
-                }
+                // if (isValidMove(newPos)) {
+                sendMessage({ type: 'move', roomId, playerId, direction });
+                // }
             }
 
             setTimeout(() => {
@@ -297,11 +298,13 @@ function GameApp() {
                     break;
 
                 case 'countdown_started':
+                    console.log('Countdown started with duration:', data.duration);
+                    setWaitingTimeout(null);
                     setCountdown(data.duration);
                     setWaiting(false);
                     break;
                 case 'countdown_update':
-                    console.log('Countdown update:', data);
+                    console.log('Countdown update received:', data.remainingTime);
                     setCountdown(data.remainingTime);
                     break;
                 case 'player_damaged':
@@ -322,6 +325,10 @@ function GameApp() {
                     break;
                 case 'chat_message':
                     setChatMessages((prev) => [...prev, data]);
+                    break;
+                case 'waiting_timeout_set':
+                    console.log('Waiting timeout set with duration:', data.duration);
+                    setWaitingTimeout(data.duration);
                     break;
             }
         } catch (error) {
@@ -401,6 +408,26 @@ function GameApp() {
         showSidebar
     });
 
+    // Add countdown effect
+    useEffect(() => {
+        if (countdown !== null && countdown > 0) {
+            const timer = setTimeout(() => {
+                setCountdown(prev => (prev > 0 ? prev - 1 : 0));
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [countdown]);
+
+    // Add waiting timeout countdown effect
+    useEffect(() => {
+        if (waitingTimeout !== null && waitingTimeout > 0) {
+            const timer = setTimeout(() => {
+                setWaitingTimeout(prev => (prev > 0 ? prev - 1000 : 0));
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [waitingTimeout]);
+
     // --- UI Components ---
     function LoginForm() {
         return Div({ className: 'login-form' }, [
@@ -419,8 +446,10 @@ function GameApp() {
     }
 
     function WaitingScreen() {
+        console.log('WaitingScreen');
         return Div({
             className: 'waiting-screen',
+
             style: {
                 display: 'flex',
                 flexDirection: 'column',
@@ -484,6 +513,12 @@ function GameApp() {
 
     function GameStatusMessage() {
         return statusMsg && Div({ className: `game-status-message ${statusType}` }, statusMsg);
+    }
+
+    function WaitingTimeoutCountdown() {
+        return waitingTimeout !== null && waitingTimeout > 0 && countdown === null
+            ? Div({ className: 'waiting-timeout-countdown' }, `Game will start in ${waitingTimeout / 1000} seconds if no more players join...`)
+            : null;
     }
 
     function renderMap() {
@@ -752,6 +787,7 @@ function GameApp() {
     return Div({ className: 'game-app' }, [
         !joined && LoginForm(),
         joined && waiting && WaitingScreen(),
+        joined && waitingTimeout !== null && WaitingTimeoutCountdown(),
         joined && Countdown(),
         joined && !waiting && !gameOver && Div({
             className: 'game-container'

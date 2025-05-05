@@ -141,12 +141,28 @@ export class Game {
         if (room.state !== GAME_STATES.WAITING) return;
         room.state = GAME_STATES.COUNTDOWN;
 
+        const startTime = Date.now();
+        const endTime = startTime + COUNTDOWN_DURATION;
+
+        // Send initial countdown message
         this.broadcastToRoom(room, {
             type: 'countdown_started',
             duration: COUNTDOWN_DURATION / 1000
         });
 
+        // Send countdown updates every second
+        room.countdownInterval = setInterval(() => {
+            const remainingTime = Math.ceil((endTime - Date.now()) / 1000);
+            if (remainingTime > 0) {
+                this.broadcastToRoom(room, {
+                    type: 'countdown_update',
+                    remainingTime: remainingTime
+                });
+            }
+        }, 1000);
+
         room.countdownTimeout = setTimeout(() => {
+            clearInterval(room.countdownInterval);
             this.startGame(room);
         }, COUNTDOWN_DURATION);
     }

@@ -139,12 +139,28 @@ export class Game {
                 this.startCountdown(room);
             } else if (!room.waitingTimeout) {
                 console.log('Setting waiting timeout for game start');
+                this.broadcastToRoom(room, {
+                    type: 'waiting_timeout_set',
+                    duration: WAITING_TIMEOUT
+                });
                 room.waitingTimeout = setTimeout(() => {
                     room.waitingTimeout = null;
                     if (room.state === GAME_STATES.WAITING && room.players.size >= 2) {
                         this.startCountdown(room);
                     }
                 }, WAITING_TIMEOUT);
+            } else {
+                clearTimeout(room.waitingTimeout);
+                room.waitingTimeout = setTimeout(() => {
+                    room.waitingTimeout = null;
+                    if (room.state === GAME_STATES.WAITING && room.players.size >= 2) {
+                        this.startCountdown(room);
+                    }
+                }, WAITING_TIMEOUT);
+                this.broadcastToRoom(room, {
+                    type: 'waiting_timeout_set',
+                    duration: WAITING_TIMEOUT
+                });
             }
         }
 

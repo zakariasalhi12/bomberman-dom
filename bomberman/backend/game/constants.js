@@ -6,7 +6,7 @@ export const GAME_STATES = {
 };
 
 export const MAX_PLAYERS = 4;
-export const WAITING_TIMEOUT = 30000; // 30 seconds
+export const WAITING_TIMEOUT = 20000; // 30 seconds
 export const COUNTDOWN_DURATION = 5000; // 5 seconds
 export const LIVES = 3;
 export const POWERUP_TYPES = ['bomb', 'flame', 'speed'];
