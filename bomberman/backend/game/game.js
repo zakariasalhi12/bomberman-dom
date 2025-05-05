@@ -25,16 +25,11 @@ export class Game {
         for (let y = 0; y < height; y++) {
             const row = [];
             for (let x = 0; x < width; x++) {
-                // 0 = empty, 1 = destructible block, 2 = indestructible wall
                 if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
-                    // Border walls (indestructible)
                     row.push(2);
                 } else if (x % 2 === 0 && y % 2 === 0) {
-                    // Inner walls (indestructible)
                     row.push(2);
                 } else {
-                    // Randomly place destructible blocks (70% chance)
-                    // But ensure corners are clear for player starting positions
                     const isCornerArea =
                         (x <= 2 && y <= 2) || // Top-left
                         (x <= 2 && y >= height - 3) || // Bottom-left
@@ -228,8 +223,6 @@ export class Game {
     }
 
     updateGame(room) {
-        // console.warn(room.map[])
-        // Update bomb timers and handle explosions
         const explodedBombs = [];
 
         for (let i = 0; i < room.bombs.length; i++) {
@@ -292,7 +285,7 @@ export class Game {
                         }
                     }
                 }
-
+                let powercollected = {};
                 // Destroy blocks and spawn power-ups
                 for (const tile of affectedTiles) {
                     // if (tile.x >= 0 && tile.x < room.map[0].length &&
@@ -307,6 +300,11 @@ export class Game {
                                 y: tile.y,
                                 type: powerType
                             });
+                            powercollected = {
+                                x: tile.x,
+                                y: tile.y,
+                                type: powerType
+                            }
                         }
                     }
                     // }
@@ -320,7 +318,8 @@ export class Game {
                     y: bomb.y,
                     range: bomb.range,
                     tiles: affectedTiles,
-                    playerId: bomb.playerId
+                    playerId: bomb.playerId,
+                    powerups: powercollected,
                 });
             }
         }
@@ -566,14 +565,6 @@ export class Game {
                 return false;
             }
         }
-
-        // // TODO: optionally check for bombs
-        // for (const bomb of room.bombs) {
-        //     if (bomb.x === x && bomb.y === y) {
-        //         return false;
-        //     }
-        // }
-
         return true;
     }
 
@@ -616,8 +607,3 @@ export function getStartingPosition(playerIndex, mapWidth, mapHeight) {
 
     return positions[playerIndex] || positions[0];
 }
-
-// // export { Game };
-// function checkcollision(map, playerstate) {
-
-// }

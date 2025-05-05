@@ -105,12 +105,12 @@ function GameApp() {
                 });
 
                 // Update powerups
-                setPowerUps(prevPowerUps => {
-                    return prevPowerUps.map(powerUp => {
-                        // Add any powerup update logic here
-                        return powerUp;
-                    });
-                });
+                // setPowerUps(prevPowerUps => {
+                //     return prevPowerUps.map(powerUp => {
+                //         // Add any powerup update logic here
+                //         return powerUp;
+                //     });
+                // });
             }
 
             // Schedule next frame
@@ -378,6 +378,7 @@ function GameApp() {
                 case 'explosion':
                     console.log('Explosion:', data);
                     setBombs(prev => prev.filter(b => b.id !== data.id));
+                    setPowerUps(prevPowerUps => [...prevPowerUps, data.powerups]);
                     if (data.tiles) {
                         setMap(prev => {
                             if (!prev) return prev;
@@ -417,6 +418,7 @@ function GameApp() {
                     setPlayers((prev) => prev.map(p => p.id === data.playerId ? { ...p, ...data.newStats } : p));
                     setStatusMsg('Power-up collected!');
                     setStatusType('powerup');
+                    setPowerUps((prev) => prev.filter((power) => power.x !== data.x && power.y !== data.y))
                     break;
                 case 'game_over':
                     setGameOver(data);
@@ -439,9 +441,9 @@ function GameApp() {
     // Add debug logging for state changes
     useEffect(() => {
         console.log('Game state updated:', {
-            bombs
+            powerUps
         });
-    }, [bombs]);
+    }, [powerUps]);
 
     // Add state change debugging
     // useEffect(() => {
