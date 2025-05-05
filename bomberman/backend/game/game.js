@@ -272,11 +272,11 @@ export class Game {
                                 }
 
                                 // Remove player
-                                // room.players.delete(playerId);
                                 const playersocket = room.players.get(playerId)
                                 playersocket.socket.send(JSON.stringify({
                                     type: 'eliminated',
                                 }))
+                                room.players.delete(playerId);
                                 this.broadcastToRoom(room, {
                                     type: 'player_eliminated',
                                     playerId

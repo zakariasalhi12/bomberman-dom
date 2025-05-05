@@ -155,6 +155,14 @@ function GameApp() {
         return pos;
     }
 
+    function GameOverScreen() {
+        if (!gameOver) return null;
+        return Div({ className: 'game-over' }, [
+            jsx('p', {}, gameOver.winner ? `Winner: ${gameOver.winnerNickname}` : 'Draw!'),
+            Button({ onclick: () => window.location.reload() }, 'Play Again')
+        ]);
+    }
+
     // function isValidMove(pos) {
     //     if (!map) return false;
 
@@ -329,7 +337,6 @@ function GameApp() {
                     break;
                 case 'game_over':
                     setGameOver(data);
-
                     break;
                 case 'chat_message':
                     setChatMessages((prev) => [...prev, data]);
@@ -344,13 +351,6 @@ function GameApp() {
             setStatusMsg('Error processing game update');
             setStatusType('error');
         }
-    }
-
-    function SetPlayerEliminated() {
-        return Div({ className: 'game_over_container' }, [
-            H2({}, 'You Are eliminated '),
-            // Button({ type: 'submit' , onclick: window.location.reload()}, 'Bach to home')
-        ])
     }
 
     // Add debug logging for state changes
@@ -513,12 +513,13 @@ function GameApp() {
         ]);
     }
 
+
     function Countdown() {
         return countdown !== null && Div({ className: 'countdown' }, `Game starting in ${countdown}...`);
     }
 
     function EliminatedScreen() {
-        return Div({className : "game_over_container"}, [
+        return Div({className : "eliminated-screen"}, [
             H1({style :  {
                 color: "white"
             }}  , "You Are Eliminated"),
@@ -804,13 +805,14 @@ function GameApp() {
         joined && waiting && WaitingScreen(),
         joined && waitingTimeout !== null && WaitingTimeoutCountdown(),
         joined && Countdown(),
-        joined && !waiting && !gameOver && Div({
+        eliminated && EliminatedScreen(),
+        gameOver && GameOverScreen(),
+        joined && !waiting && !gameOver && !eliminated && Div({
             className: 'game-container'
         }, [
             Div({
                 className: 'game-board-container'
             }, [
-                eliminated && EliminatedScreen(),
                 GameStatusMessage(),
                 renderMap(),
                 renderPlayers(),

@@ -322,7 +322,7 @@ body {
 }
 
 
-.game_over_container {
+.eliminated-screen {
     position: fixed;
     top: 0;
     left : 0;
@@ -337,7 +337,7 @@ body {
     z-index: 99;
     gap: 10px;
 }
-.game_over_container button {
+.eliminated-screen button {
     width: 50%;
     padding: 10px;
 }
