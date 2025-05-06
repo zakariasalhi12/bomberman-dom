@@ -7,6 +7,6 @@ export const GAME_STATES = {
 
 export const MAX_PLAYERS = 4;
 export const WAITING_TIMEOUT = 20000;
-export const COUNTDOWN_DURATION = 5000;
+export const COUNTDOWN_DURATION = 10000;
 export const LIVES = 3;
 export const POWERUP_TYPES = ['bomb', 'flame', 'speed'];
