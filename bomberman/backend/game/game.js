@@ -460,7 +460,6 @@ export class Game {
     }
 
     handlePlaceBomb(roomId, playerId) {
-        console.log("Placing bomb FIREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEED");
         const room = this.rooms.get(roomId);
         if (!room || room.state !== GAME_STATES.PLAYING) return;
 
