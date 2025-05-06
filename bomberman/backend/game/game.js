@@ -181,6 +181,16 @@ export class Game {
         }, COUNTDOWN_DURATION);
     }
 
+    getStartingPosition(playerIndex, mapWidth, mapHeight) {
+        const positions = [
+            { x: 1, y: 1 },                     // Top-left
+            { x: mapWidth - 2, y: 1 },          // Top-right
+            { x: 1, y: mapHeight - 2 },         // Bottom-left
+            { x: mapWidth - 2, y: mapHeight - 2 } // Bottom-right
+        ];
+        return positions[playerIndex % positions.length];
+    }
+
     startGame(room) {
         console.log('Starting game for room:', room.id);
         if (room.state !== GAME_STATES.COUNTDOWN) {
@@ -193,7 +203,7 @@ export class Game {
         // Assign starting positions
         let playerIndex = 0;
         for (const [playerId, player] of room.players.entries()) {
-            const position = getStartingPosition(playerIndex, room.map[0].length, room.map.length);
+            const position = this.getStartingPosition(playerIndex, room.map[0].length, room.map.length);
             player.x = position.x;
             player.y = position.y;
             playerIndex++;
@@ -417,7 +427,7 @@ export class Game {
         const player = room.players.get(playerId);
         if (!player) return;
 
-        // Calculate new position based on direction and speed
+        // Calculate new position based on direction
         let newX = player.x;
         let newY = player.y;
 
@@ -428,23 +438,25 @@ export class Game {
             case 'right': newX += 1; break;
         }
 
+        // Ensure grid alignment
+        newX = Math.round(newX);
+        newY = Math.round(newY);
+
         // Check boundaries and collisions
         newX = Math.max(0, Math.min(room.map[0].length - 1, newX));
         newY = Math.max(0, Math.min(room.map.length - 1, newY));
 
-
         if (this.isWalkable(room, newX, newY, direction)) {
-            // console.warn("moved");
             player.x = newX;
             player.y = newY;
             this.broadcastToRoom(room, {
                 type: 'player_moved',
                 playerId,
-                x: player.x,
-                y: player.y
+                x: newX,
+                y: newY,
+                direction: direction
             });
         }
-
     }
 
     handlePlaceBomb(roomId, playerId) {
@@ -523,45 +535,27 @@ export class Game {
         }
     }
     isWalkable(room, x, y, direction) {
-        console.log(x, y, room.map[Math.floor(y)][Math.ceil(x)]);
-
         // Check boundaries
-        if (x < 0 || y < 0 || y > 13 || x > 13) {
-            console.warn("bondaries");
+        if (x < 0 || y < 0 || y >= room.map.length || x >= room.map[0].length) {
             return false;
         }
 
-        let tile = null;
-        switch (direction) {
-            case "up":
-                tile = room.map[Math.floor(y)][Math.floor(x)];
-                break;
-            case "down":
-                tile = room.map[Math.ceil(y)][Math.ceil(x)];
-                break;
-            case "left":
-                tile = room.map[Math.ceil(y)][Math.floor(x)];
-                break;
-            case "right":
-                tile = room.map[Math.floor(y)][Math.ceil(x)];
-                break;
+        // Get the tile at the target position
+        const tile = room.map[y][x];
 
-        }
-        let ifbomb = false;
-        room.bombs?.forEach(bomb => {
-            if (bomb.x == x && bomb.y == y) ifbomb = true
-        });
-
+        // Check for bombs at the exact position
+        const hasBomb = room.bombs.some(bomb => 
+            Math.floor(bomb.x) === x && Math.floor(bomb.y) === y
+        );
 
         // Check tile type
-        if (tile === 1 || tile === 2 || ifbomb) {
-            return false; // Wall or destructible block
+        if (tile === 1 || tile === 2 || hasBomb) {
+            return false; // Wall, destructible block, or bomb
         }
 
         // Check if another player is on the tile
         for (const player of room.players.values()) {
             if (Math.floor(player.x) === x && Math.floor(player.y) === y) {
-                console.warn("other player")
                 return false;
             }
         }
@@ -594,16 +588,4 @@ export class Game {
         this.rooms.clear();
     }
 
-}
-
-// Generate starting positions for players
-export function getStartingPosition(playerIndex, mapWidth, mapHeight) {
-    const positions = [
-        { x: 1, y: 1 },                     // Top-left
-        { x: mapWidth - 2, y: 1 },          // Top-right
-        { x: 1, y: mapHeight - 2 },         // Bottom-left
-        { x: mapWidth - 2, y: mapHeight - 2 } // Bottom-right
-    ];
-
-    return positions[playerIndex] || positions[0];
 }

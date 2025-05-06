@@ -5,6 +5,25 @@ import componentStack from '../framework/core/componentStack.js';
 const LIVES = 3;
 const TILE_SIZE = 40;
 
+// Animation constants
+const SPRITE_SIZE = 32;
+const SPRITE_SHEET_WIDTH = 96; // 3 frames per direction
+const FRAME_COUNT = 3;
+const FRAME_DURATION = 150; // Animation frame speed
+const MOVE_SPEED = 250; // Smooth animation speed
+const MOVE_INTERVAL = 100; // How often player can move
+
+// Common sprite paths for all players
+const SPRITE_PATHS = {
+    down: './images/move_down.png',
+    up: './images/move_up.png',
+    left: './images/move_left.png',
+    right: './images/move_right.png'
+};
+
+// Sprite paths for different directions (using color-specific paths)
+const getPlayerSpritePath = (color, direction) => `./images/${color}_${direction}.png`;
+
 function GameApp() {
     // Set component title
     const COMPONENT_TITLE = 'GameApp';
@@ -35,6 +54,11 @@ function GameApp() {
         lastUpdate: Date.now(),
         moveInterval: 100, // ms between moves
     });
+
+    // Add new animation state
+    const [playerAnimations, setPlayerAnimations] = useState(new Map()); // Store animation state for each player
+    const [playerDirections, setPlayerDirections] = useState(new Map()); // Store current direction for each player
+    const animationFrameRef = useRef(new Map()); // Store animation frame for each player
 
     // --- Refs ---
     const socketRef = useRef(null);
@@ -215,18 +239,38 @@ function GameApp() {
             gameStateRef.current.isMoving = true;
             gameStateRef.current.lastUpdate = now;
 
-            // Predict movement
+            // Update player direction
+            setPlayerDirections(prev => new Map(prev).set(playerId, direction));
+
+            // Start animation
+            setPlayerAnimations(prev => {
+                const newAnimations = new Map(prev);
+                newAnimations.set(playerId, {
+                    isMoving: true,
+                    frameIndex: (prev.get(playerId)?.frameIndex || 0 + 1) % FRAME_COUNT
+                });
+                return newAnimations;
+            });
+
+            // Send move to server
             const currentPlayer = players.find(p => p.id === playerId);
             if (currentPlayer) {
-                const newPos = calculateNewPosition(currentPlayer, direction);
-                // if (isValidMove(newPos)) {
                 sendMessage({ type: 'move', roomId, playerId, direction });
-                // }
             }
 
             setTimeout(() => {
                 gameStateRef.current.isMoving = false;
-            }, gameStateRef.current.moveInterval);
+                
+                // Stop animation after movement
+                setPlayerAnimations(prev => {
+                    const newAnimations = new Map(prev);
+                    newAnimations.set(playerId, {
+                        isMoving: false,
+                        frameIndex: 0
+                    });
+                    return newAnimations;
+                });
+            }, MOVE_INTERVAL);
         }
     }
 
@@ -283,27 +327,23 @@ function GameApp() {
         try {
             switch (data.type) {
                 case 'joined_game':
-                    console.log('Player joined game:', data);
+                    console.log('Player joined game - Raw data:', data);
                     setPlayerId(data.playerId);
-
                     setRoomId(data.roomId);
                     if (data.map) {
-                        console.log('Setting initial map:', data.map);
                         setMap(data.map);
                     }
                     if (data.players) {
-                        console.log('Setting initial players:', data.players);
                         setPlayers(data.players.map(p => ({
                             ...p,
-                            x: p.x || 1,
-                            y: p.y || 1
+                            x: Number(p.x),
+                            y: Number(p.y)
                         })));
                     }
                     setShowSidebar(true);
                     break;
 
                 case 'player_joined':
-                    console.log('New player joined:', data);
                     setStatusMsg(`${data.nickname} joined the game!`);
                     setStatusType('joined');
                     setPlayers(prev => {
@@ -313,8 +353,8 @@ function GameApp() {
                         return [...prev, {
                             id: data.playerId,
                             nickname: data.nickname,
-                            x: data.x,
-                            y: data.y,
+                            x: Number(data.x),
+                            y: Number(data.y),
                             lives: data.lives || LIVES,
                             bombs: data.bombs || 1,
                             range: data.range || 1,
@@ -361,9 +401,37 @@ function GameApp() {
                     console.log('Player moved:', data);
                     setPlayers(prev => prev.map(p =>
                         p.id === data.playerId
-                            ? { ...p, x: data.x, y: data.y }
+                            ? {
+                                ...p,
+                                x: Number(data.x),
+                                y: Number(data.y)
+                            }
                             : p
                     ));
+                    setPlayerDirections(prev => new Map(prev).set(playerId, data.direction));
+
+                    // Start animation
+                    setPlayerAnimations(prev => {
+                        const newAnimations = new Map(prev);
+                        newAnimations.set(playerId, {
+                            isMoving: true,
+                            frameIndex: (prev.get(playerId)?.frameIndex || 0 + 1) % FRAME_COUNT
+                        });
+                        return newAnimations;
+                    });
+                    setTimeout(() => {
+                        gameStateRef.current.isMoving = false;
+                        
+                        // Stop animation after movement
+                        setPlayerAnimations(prev => {
+                            const newAnimations = new Map(prev);
+                            newAnimations.set(playerId, {
+                                isMoving: false,
+                                frameIndex: 0
+                            });
+                            return newAnimations;
+                        });
+                    }, MOVE_INTERVAL);
                     break;
                 case 'bomb_placed':
                     console.warn('Bomb placed:', data);
@@ -521,6 +589,33 @@ function GameApp() {
             return () => clearTimeout(timer);
         }
     }, [waitingTimeout]);
+
+    // Animation effect for all players
+    useEffect(() => {
+        const animationIntervals = new Map();
+
+        players.forEach(player => {
+            if (playerAnimations.get(player.id)?.isMoving) {
+                const interval = setInterval(() => {
+                    setPlayerAnimations(prev => {
+                        const newAnimations = new Map(prev);
+                        const currentAnim = prev.get(player.id) || { isMoving: true, frameIndex: 0 };
+                        newAnimations.set(player.id, {
+                            ...currentAnim,
+                            frameIndex: (currentAnim.frameIndex + 1) % FRAME_COUNT
+                        });
+                        return newAnimations;
+                    });
+                }, FRAME_DURATION);
+
+                animationIntervals.set(player.id, interval);
+            }
+        });
+
+        return () => {
+            animationIntervals.forEach(interval => clearInterval(interval));
+        };
+    }, [players, playerAnimations]);
 
     // --- UI Components ---
     function LoginForm() {
@@ -789,52 +884,47 @@ function GameApp() {
 
     function renderPlayers() {
         if (!map || !players.length) {
-            console.log('No map or players to render');
             return null;
         }
 
-        console.log('Rendering players:', players);
         return Div({
             className: 'players-container',
             style: {
                 position: 'absolute',
                 top: '20px',  // Match the game board padding
                 left: '20px', // Match the game board padding
-                width: 'calc(100% - 40px)', // Account for padding
-                height: 'calc(100% - 40px)', // Account for padding
+                width: 'calc(100% - 40px)',
+                height: 'calc(100% - 40px)',
                 pointerEvents: 'none'
             }
         }, players.map((player, idx) => {
-            console.log(`Rendering player ${idx}:`, player);
-            const playerImages = [
-                './images/redcaracter.png',
-                './images/bluecaracter.png',
-                './images/greencaracter.png',
-                './images/yellowcaracter.png'
-            ];
+            const playerAnimation = playerAnimations.get(player.id) || { isMoving: false, frameIndex: 0 };
+            const direction = playerDirections.get(player.id) || 'down';
+
+            // Calculate exact pixel position for grid alignment
+            const pixelX = Math.floor(player.x * TILE_SIZE);
+            const pixelY = Math.floor(player.y * TILE_SIZE);
 
             return Div({
                 className: `player player-${idx + 1}`,
                 key: player.id,
                 style: {
                     position: 'absolute',
-                    left: `${player.x * TILE_SIZE + TILE_SIZE + 8 / 2}px`,
-                    top: `${player.y * TILE_SIZE + TILE_SIZE + 8 / 2}px`,
-                    transform: 'translate(-50%, -50%)',
-                    width: '36px',
-                    height: '36px',
-                    zIndex: '100'
+
+                    left: `${pixelX + TILE_SIZE + 8 / 2}px`,
+                    top: `${pixelY + TILE_SIZE + 8 / 2}px`,
+                    width: `${SPRITE_SIZE}px`,
+                    height: `${SPRITE_SIZE}px`,
+                    zIndex: '100',
+                    transition: `left ${MOVE_SPEED}ms ease-out, top ${MOVE_SPEED}ms ease-out`,
+                    backgroundImage: `url(${SPRITE_PATHS[direction]})`,
+                    backgroundPosition: `-${playerAnimation.frameIndex * SPRITE_SIZE}px 0px`,
+                    backgroundSize: `${SPRITE_SHEET_WIDTH}px ${SPRITE_SIZE}px`,
+                    imageRendering: 'pixelated',
+                    filter: idx > 0 ? `hue-rotate(${idx * 90}deg)` : '',
+                    pointerEvents: 'none'
                 }
             }, [
-                jsx('img', {
-                    src: playerImages[idx % playerImages.length],
-                    alt: `Player ${idx + 1}`,
-                    style: {
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain'
-                    }
-                }),
                 Div({
                     className: 'player-nickname',
                     style: {
