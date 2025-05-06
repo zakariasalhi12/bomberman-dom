@@ -72,6 +72,9 @@ function GameApp() {
     // Add explosion state management
     const [explosions, setExplosions] = useState(new Map());
 
+    // Add speed boost state
+    const [playerSpeedBoosts, setPlayerSpeedBoosts] = useState(new Map());
+
     // Clean up component stack
     componentStack.pop();
 
@@ -245,7 +248,16 @@ function GameApp() {
                 if (!roomId || !playerId || gameStateRef.current.isMoving) return;
 
                 const now = Date.now();
-                if (now - gameStateRef.current.lastUpdate < gameStateRef.current.moveInterval) return;
+                const player = players.find(p => p.id === playerId);
+                if (!player) return;
+
+                // Calculate cooldown based on player speed with a minimum threshold
+                const speedBoost = playerSpeedBoosts.get(playerId) || 1;
+                const maxSpeed = 2.0; // Maximum speed multiplier
+                const effectiveSpeed = Math.min(player.speed * speedBoost, maxSpeed);
+                const cooldown = Math.max(MOVE_INTERVAL / effectiveSpeed, 50); // Minimum 50ms cooldown
+
+                if (now - gameStateRef.current.lastUpdate < cooldown) return;
 
                 let direction = null;
                 switch (event.key) {
@@ -260,10 +272,10 @@ function GameApp() {
                     gameStateRef.current.isMoving = true;
                     gameStateRef.current.lastUpdate = now;
 
-                    // Update player direction immediately
+                    // Update player direction
                     setPlayerDirections(prev => new Map(prev).set(playerId, direction));
 
-                    // Start animation immediately
+                    // Start animation with adjusted duration
                     setPlayerAnimations(prev => {
                         const newAnimations = new Map(prev);
                         const currentAnim = prev.get(playerId) || { isMoving: false, frameIndex: 0 };
@@ -274,13 +286,13 @@ function GameApp() {
                         return newAnimations;
                     });
 
-                    // Send move to server immediately
+                    // Send move to server
                     const currentPlayer = players.find(p => p.id === playerId);
                     if (currentPlayer) {
                         sendMessage({ type: 'move', roomId, playerId, direction });
                     }
 
-                    // Reset movement state after animation duration
+                    // Reset movement state after cooldown
                     setTimeout(() => {
                         gameStateRef.current.isMoving = false;
                         setPlayerAnimations(prev => {
@@ -291,14 +303,14 @@ function GameApp() {
                             });
                             return newAnimations;
                         });
-                    }, MOVE_INTERVAL);
+                    }, cooldown);
                 }
             };
 
             window.addEventListener('keydown', handleKeyDownWrapper);
             return () => window.removeEventListener('keydown', handleKeyDownWrapper);
         }
-    }, [joined, waiting, gameOver, eliminated, roomId, playerId, players]);
+    }, [joined, waiting, gameOver, eliminated, roomId, playerId, players, playerSpeedBoosts]);
 
     function calculateNewPosition(player, direction) {
         const pos = { x: player.x, y: player.y };
@@ -536,6 +548,24 @@ function GameApp() {
                             ? { ...p, ...data.newStats }
                             : p
                     ));
+
+                    // Handle speed powerup with reduced boost
+                    if (data.powerType === 'speed') {
+                        setPlayerSpeedBoosts(prev => {
+                            const newBoosts = new Map(prev);
+                            newBoosts.set(data.playerId, 1.3); // Reduced to 30% speed boost
+                            return newBoosts;
+                        });
+
+                        // Reset speed boost after 3 seconds
+                        setTimeout(() => {
+                            setPlayerSpeedBoosts(prev => {
+                                const newBoosts = new Map(prev);
+                                newBoosts.delete(data.playerId);
+                                return newBoosts;
+                            });
+                        }, 3000);
+                    }
 
                     // Remove the collected powerup with a slight delay for visual feedback
                     setTimeout(() => {
