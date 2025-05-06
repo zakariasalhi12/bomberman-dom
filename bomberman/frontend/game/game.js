@@ -529,10 +529,24 @@ function GameApp() {
                     setStatusType('eliminated');
                     break;
                 case 'powerup_collected':
-                    setPlayers((prev) => prev.map(p => p.id === data.playerId ? { ...p, ...data.newStats } : p));
-                    setStatusMsg('Power-up collected!');
+                    console.log('Powerup collected:', data);
+                    // Update player stats
+                    setPlayers(prev => prev.map(p =>
+                        p.id === data.playerId
+                            ? { ...p, ...data.newStats }
+                            : p
+                    ));
+
+                    // Remove the collected powerup with a slight delay for visual feedback
+                    setTimeout(() => {
+                        setPowerUps(prev => prev.filter(p =>
+                            !(p.x === data.x && p.y === data.y)
+                        ));
+                    }, MOVE_INTERVAL / 2);
+
+                    // Show status message
+                    setStatusMsg(`Collected ${data.powerType} powerup!`);
                     setStatusType('powerup');
-                    setPowerUps((prev) => prev.filter((power) => power.x !== data.x && power.y !== data.y))
                     break;
                 case 'game_over':
                     setGameOver(data);
@@ -811,6 +825,9 @@ function GameApp() {
                             }
                         );
 
+                        // Find powerup at this position (more efficient)
+                        const powerupAtPosition = powerUps.find(p => p.x === x && p.y === y);
+
                         return Div({
                             className: `tile ${tileType}`,
                             style: {
@@ -852,9 +869,9 @@ function GameApp() {
                             }),
 
                             // Render powerup if present
-                            powerUps.find(p => p.x === x && p.y === y) && jsx('img', {
+                            powerupAtPosition && jsx('img', {
                                 key: `powerup-${x}-${y}`,
-                                src: getPowerUpImage(powerUps.find(p => p.x === x && p.y === y).type),
+                                src: getPowerUpImage(powerupAtPosition.type),
                                 alt: 'powerup',
                                 style: {
                                     width: '32px',
