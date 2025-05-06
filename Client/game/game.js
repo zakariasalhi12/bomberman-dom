@@ -862,7 +862,7 @@ function GameApp() {
             }, [
                 jsx('img', {
                     className: 'player-avatar',
-                    src: './images/playerStyle.png',
+                    src: './images/avatar.png',
                     alt: player.nickname
                 }),
                 Span({}, player.nickname),
