@@ -1,24 +1,18 @@
 import { jsx, useState, useRef, useEffect, Div, H2, Input, Button, P, Ul, Li, Span, H1, Component } from '../framework/index.js';
-import componentStack from '../framework/core/componentStack.js';
 import { getPowerUpImage, getTileBackground, getTileImage, getTileType } from './utils.js';
 import { LIVES, TILE_SIZE, SPRITE_PATHS, SPRITE_SHEET_WIDTH, SPRITE_SIZE, FRAME_COUNT, FRAME_DURATION, MOVE_INTERVAL, MOVE_SPEED } from './constants.js';
 
 
 function GameApp() {
-    // Set component title
-    const COMPONENT_TITLE = 'GameApp';
-    componentStack.push(COMPONENT_TITLE);
-
-    // --- State ---
     const [nickname, setNickname] = useState('');
     const [joined, setJoined] = useState(false);
     const [waiting, setWaiting] = useState(false);
     const [playerId, setPlayerId] = useState(null);
     const [roomId, setRoomId] = useState(null);
-    const [players, setPlayers] = useState([]); // array of player objects
+    const [players, setPlayers] = useState([]);
     const [map, setMap] = useState(null);
-    const [bombs, setBombs] = useState([]); // array of bomb objects
-    const [powerUps, setPowerUps] = useState([]); // array of powerup objects
+    const [bombs, setBombs] = useState([]);
+    const [powerUps, setPowerUps] = useState([]);
     const [countdown, setCountdown] = useState(null);
     const [statusMsg, setStatusMsg] = useState(null);
     const [statusType, setStatusType] = useState('');
@@ -26,36 +20,27 @@ function GameApp() {
     const [gameOver, setGameOver] = useState(null);
     const [showSidebar, setShowSidebar] = useState(false);
     const [eliminated, setEliminated] = useState(false);
-
-    const [playerPositions, setPlayerPositions] = useState(new Map());
     const [waitingTimeout, setWaitingTimeout] = useState(null);
     const gameStateRef = useRef({
         isMoving: false,
         lastUpdate: Date.now(),
-        moveInterval: 100, // ms between moves
+        moveInterval: 100,
     });
 
-    // Add new animation state
-    const [playerAnimations, setPlayerAnimations] = useState(new Map()); // Store animation state for each player
-    const [playerDirections, setPlayerDirections] = useState(new Map()); // Store current direction for each player
-    const animationFrameRef = useRef(new Map()); // Store animation frame for each player
+    const [playerAnimations, setPlayerAnimations] = useState(new Map());
+    const [playerDirections, setPlayerDirections] = useState(new Map());
 
-    // --- Refs ---
     const socketRef = useRef(null);
     const statusTimeoutRef = useRef(null);
     const lastFrameTimeRef = useRef(0);
     const FPS = 60;
     const frameInterval = 1000 / FPS;
-    const explosionsRef = useRef(new Map()); // Store active explosions
+    const explosionsRef = useRef(new Map());
 
-    // Add explosion state management
     const [explosions, setExplosions] = useState(new Map());
 
-    // Add speed boost state
     const [playerSpeedBoosts, setPlayerSpeedBoosts] = useState(new Map());
 
-    // Clean up component stack
-    componentStack.pop();
 
     useEffect(() => {
         let animationFrameId;
@@ -71,7 +56,6 @@ function GameApp() {
 
                 setPlayers(prevPlayers => {
                     return prevPlayers.map(player => {
-                        // Add any player movement logic here
                         return player;
                     });
                 });
@@ -79,22 +63,21 @@ function GameApp() {
                 setBombs(prevBombs => {
                     const currentTime = Date.now();
                     const newBombs = prevBombs.filter(bomb => {
-                        if (currentTime - bomb.placedAt >= 3000) { // 3 seconds timer
+                        if (currentTime - bomb.placedAt >= 3000) {
                             const explosion = {
                                 id: bomb.id,
                                 x: bomb.x,
                                 y: bomb.y,
                                 range: bomb.range,
                                 startTime: currentTime,
-                                duration: 500 // Explosion animation duration in ms
+                                duration: 500
                             };
                             explosionsRef.current.set(bomb.id, explosion);
-                            return false; // Remove bomb
+                            return false;
                         }
                         return true;
                     });
 
-                    // Update explosion animations
                     const currentExplosions = explosionsRef.current;
                     for (const [id, explosion] of currentExplosions.entries()) {
                         if (currentTime - explosion.startTime >= explosion.duration) {
@@ -106,12 +89,10 @@ function GameApp() {
                 });
 
 
-                // Update explosions
                 setExplosions(prevExplosions => {
                     const currentTime = Date.now();
                     const newExplosions = new Map(prevExplosions);
 
-                    // Remove expired explosions
                     for (const [id, explosion] of newExplosions.entries()) {
                         if (currentTime - explosion.startTime >= explosion.duration) {
                             newExplosions.delete(id);
@@ -127,7 +108,6 @@ function GameApp() {
 
         animationFrameId = requestAnimationFrame(gameLoop);
 
-        // Cleanup
         return () => {
             if (animationFrameId) {
                 cancelAnimationFrame(animationFrameId);
@@ -135,7 +115,6 @@ function GameApp() {
         };
     }, []);
 
-    // --- WebSocket Connection ---
     function connectToServer() {
         if (socketRef.current) {
             socketRef.current.close();
@@ -171,7 +150,6 @@ function GameApp() {
         };
     }
 
-    // --- Event Handlers ---
     function handleInput(e) {
         setNickname(e.target.value);
     }
@@ -189,13 +167,11 @@ function GameApp() {
     function sendMessage(message) {
         const socket = socketRef.current;
         if (socket && socket.readyState === window.WebSocket.OPEN) {
-            // console.warn(message)
             socket.send(JSON.stringify(message));
         }
     }
 
     function joinGame(nickname) {
-        console.log('Joining game with nickname:', nickname);
         sendMessage({ type: 'join', nickname });
     }
 
@@ -203,7 +179,6 @@ function GameApp() {
         sendMessage({ type: 'place_bomb', roomId, playerId });
     }
 
-    // Add keyboard event handling
     useEffect(() => {
         if (joined && !waiting && !gameOver && !eliminated && roomId && playerId) {
             const handleKeyDownWrapper = (event) => {
@@ -213,11 +188,10 @@ function GameApp() {
                 const player = players.find(p => p.id === playerId);
                 if (!player) return;
 
-                // Calculate cooldown based on player speed with a minimum threshold
                 const speedBoost = playerSpeedBoosts.get(playerId) || 1;
-                const maxSpeed = 2.0; // Maximum speed multiplier
+                const maxSpeed = 2.0;
                 const effectiveSpeed = Math.min(player.speed * speedBoost, maxSpeed);
-                const cooldown = Math.max(MOVE_INTERVAL / effectiveSpeed, 50); // Minimum 50ms cooldown
+                const cooldown = Math.max(MOVE_INTERVAL / effectiveSpeed, 50);
 
                 if (now - gameStateRef.current.lastUpdate < cooldown) return;
 
@@ -234,10 +208,8 @@ function GameApp() {
                     gameStateRef.current.isMoving = true;
                     gameStateRef.current.lastUpdate = now;
 
-                    // Update player direction
                     setPlayerDirections(prev => new Map(prev).set(playerId, direction));
 
-                    // Start animation with adjusted duration
                     setPlayerAnimations(prev => {
                         const newAnimations = new Map(prev);
                         const currentAnim = prev.get(playerId) || { isMoving: false, frameIndex: 0 };
@@ -248,13 +220,11 @@ function GameApp() {
                         return newAnimations;
                     });
 
-                    // Send move to server
                     const currentPlayer = players.find(p => p.id === playerId);
                     if (currentPlayer) {
                         sendMessage({ type: 'move', roomId, playerId, direction });
                     }
 
-                    // Reset movement state after cooldown
                     setTimeout(() => {
                         gameStateRef.current.isMoving = false;
                         setPlayerAnimations(prev => {
@@ -282,7 +252,6 @@ function GameApp() {
         ]);
     }
 
-    // --- Server Message Handler ---
     function handleServerMessage(data) {
         console.log('Handling server message:', data);
 
@@ -332,19 +301,11 @@ function GameApp() {
                     setCountdown(null);
                     setWaiting(false);
                     if (data.map) {
-                        console.log('Setting game map:', data.map);
-                        console.log('Map structure:', {
-                            isArray: Array.isArray(data.map),
-                            length: data.map.length,
-                            firstRow: data.map[0],
-                            isFirstRowArray: Array.isArray(data.map[0])
-                        });
                         setMap(data.map);
                     } else {
                         console.error('No map data in game_started message');
                     }
                     if (data.players) {
-                        console.log('Setting players with positions:', data.players);
                         setPlayers(data.players.map(p => ({
                             ...p,
                             x: p.x || 1,
@@ -366,7 +327,6 @@ function GameApp() {
                     ));
                     setPlayerDirections(prev => new Map(prev).set(data.playerId, data.direction));
 
-                    // Start animation immediately
                     setPlayerAnimations(prev => {
                         const newAnimations = new Map(prev);
                         const currentAnim = prev.get(data.playerId) || { isMoving: false, frameIndex: 0 };
@@ -389,7 +349,6 @@ function GameApp() {
                     }, MOVE_INTERVAL);
                     break;
                 case 'bomb_placed':
-                    console.warn('Bomb placed:', data);
                     setBombs(prev => [...prev, {
                         id: data.bombId,
                         x: data.x,
@@ -401,14 +360,13 @@ function GameApp() {
                 case 'explosion':
                     setBombs(prev => prev.filter(b => b.id !== data.id));
 
-                    // Create explosion effect
                     const explosion = {
                         id: data.id,
                         x: data.x,
                         y: data.y,
                         range: data.range,
                         startTime: Date.now(),
-                        duration: 500, // Explosion animation duration in ms
+                        duration: 500,
                         affectedTiles: data.tiles || []
                     };
 
@@ -418,7 +376,6 @@ function GameApp() {
                         return newExplosions;
                     });
 
-                    // Update map and powerups
                     if (data.tiles) {
                         setMap(prev => {
                             if (!prev) return prev;
@@ -437,7 +394,6 @@ function GameApp() {
                     }
                     break;
                 case 'countdown_started':
-                    console.log('Countdown started with duration:', data.duration);
                     setWaitingTimeout(null);
                     setCountdown(data.duration);
                     setWaiting(false);
@@ -453,27 +409,21 @@ function GameApp() {
                     break;
                 case 'player_eliminated':
                     setPlayers((prev) => prev.filter(p => p.id !== data.playerId));
-                    setStatusMsg('A player was eliminated!');
-                    setStatusType('eliminated');
                     break;
                 case 'powerup_collected':
-                    console.log('Powerup collected:', data);
-                    // Update player stats
                     setPlayers(prev => prev.map(p =>
                         p.id === data.playerId
                             ? { ...p, ...data.newStats }
                             : p
                     ));
 
-                    // Handle speed powerup with reduced boost
                     if (data.powerType === 'speed') {
                         setPlayerSpeedBoosts(prev => {
                             const newBoosts = new Map(prev);
-                            newBoosts.set(data.playerId, 1.3); // Reduced to 30% speed boost
+                            newBoosts.set(data.playerId, 1.3);
                             return newBoosts;
                         });
 
-                        // Reset speed boost after 3 seconds
                         setTimeout(() => {
                             setPlayerSpeedBoosts(prev => {
                                 const newBoosts = new Map(prev);
@@ -483,14 +433,12 @@ function GameApp() {
                         }, 3000);
                     }
 
-                    // Remove the collected powerup with a slight delay for visual feedback
                     setTimeout(() => {
                         setPowerUps(prev => prev.filter(p =>
                             !(p.x === data.x && p.y === data.y)
                         ));
                     }, MOVE_INTERVAL / 2);
 
-                    // Show status message
                     setStatusMsg(`Collected ${data.powerType} powerup!`);
                     setStatusType('powerup');
                     break;
@@ -501,7 +449,6 @@ function GameApp() {
                     setChatMessages((prev) => [...prev, data]);
                     break;
                 case 'waiting_timeout_set':
-                    console.log('Waiting timeout set with duration:', data.duration);
                     setWaitingTimeout(data.duration);
                     break;
             }
@@ -512,15 +459,7 @@ function GameApp() {
         }
     }
 
-    // Add debug logging for state changes
-    useEffect(() => {
-        console.log('Game state updated:', {
-            powerUps
-        });
-    }, [powerUps]);
 
-
-    // Status message fade out
     if (statusMsg) {
         clearTimeout(statusTimeoutRef.current);
         statusTimeoutRef.current = setTimeout(() => {
@@ -529,7 +468,6 @@ function GameApp() {
         }, 3500);
     }
 
-    // Add countdown effect
     useEffect(() => {
         if (countdown !== null && countdown > 0) {
             const timer = setTimeout(() => {
@@ -539,7 +477,6 @@ function GameApp() {
         }
     }, [countdown]);
 
-    // Add waiting timeout countdown effect
     useEffect(() => {
         if (waitingTimeout !== null && waitingTimeout > 0) {
             const timer = setTimeout(() => {
@@ -549,7 +486,6 @@ function GameApp() {
         }
     }, [waitingTimeout]);
 
-    // Animation effect for all players
     useEffect(() => {
         const animationIntervals = new Map();
 
@@ -577,7 +513,6 @@ function GameApp() {
     }, [players, playerAnimations]);
 
 
-    // --- UI Components ---
     function LoginForm() {
         return Div({ className: 'login-form' }, [
             H2({}, 'Bomberman Dom'),
@@ -697,7 +632,6 @@ function GameApp() {
                         const tileType = getTileType(cell);
                         const tileImage = getTileImage(cell);
 
-                        // Check for explosions at this position
                         const explosionAtPosition = Array.from(explosions.values()).find(
                             explosion => {
                                 const isCenter = explosion.x === x && explosion.y === y;
@@ -708,7 +642,6 @@ function GameApp() {
                             }
                         );
 
-                        // Find powerup at this position (more efficient)
                         const powerupAtPosition = powerUps.find(p => p.x === x && p.y === y);
 
                         return Div({
@@ -724,7 +657,6 @@ function GameApp() {
                                 border: '1px solid #444'
                             }
                         }, [
-                            // Render tile background
                             (tileImage && jsx('img', {
                                 src: tileImage,
                                 alt: tileType,
@@ -736,7 +668,6 @@ function GameApp() {
                                 }
                             })),
 
-                            // Render explosion if present
                             explosionAtPosition && Div({
                                 className: 'explosion',
                                 style: {
@@ -751,7 +682,6 @@ function GameApp() {
                                 }
                             }),
 
-                            // Render powerup if present
                             powerupAtPosition && jsx('img', {
                                 key: `powerup-${x}-${y}`,
                                 src: getPowerUpImage(powerupAtPosition.type),
@@ -765,7 +695,6 @@ function GameApp() {
                                 }
                             }),
 
-                            // Render bomb if present
                             bombs.find(b => b.x === x && b.y === y) && jsx('img', {
                                 key: `bomb-${x}-${y}`,
                                 src: './images/bomb.png',
@@ -785,8 +714,6 @@ function GameApp() {
         ]);
     }
 
-    // Helper function to get power-up images
-
 
     function renderPlayers() {
         if (!map || !players.length) {
@@ -797,8 +724,8 @@ function GameApp() {
             className: 'players-container',
             style: {
                 position: 'absolute',
-                top: '20px',  // Match the game board padding
-                left: '20px', // Match the game board padding
+                top: '20px',
+                left: '20px',
                 width: 'calc(100% - 40px)',
                 height: 'calc(100% - 40px)',
                 pointerEvents: 'none'
@@ -807,7 +734,6 @@ function GameApp() {
             const playerAnimation = playerAnimations.get(player.id) || { isMoving: false, frameIndex: 0 };
             const direction = playerDirections.get(player.id) || 'down';
 
-            // Calculate exact pixel position for grid alignment
             const pixelX = Math.floor(player.x * TILE_SIZE);
             const pixelY = Math.floor(player.y * TILE_SIZE);
 
@@ -918,59 +844,6 @@ function GameApp() {
         ]);
     }
 
-    function renderBomb(bomb) {
-        return Div({
-            className: 'bomb',
-            key: bomb.id,
-            style: {
-                position: 'absolute', // Add this - it was missing
-                width: '40px',        // Add explicit width
-                height: '40px',       // Add explicit height
-                zIndex: '80',         // Lower than player z-index (100)
-                left: `${bomb.x * TILE_SIZE + TILE_SIZE + 8 / 2}px`,
-                top: `${bomb.y * TILE_SIZE + TILE_SIZE + 8 / 2}px`
-            }
-        }, [
-            jsx('img', {
-                src: './images/bomb.png',
-                alt: 'bomb',
-                style: {
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain'
-                }
-            })
-        ]);
-    }
-
-    function renderPowerUp(powerUp) {
-        const powerUpImages = {
-            'bomb': './images/bomb.png',
-            'flame': './images/explosion.png',
-            'speed': './images/speed.webp'
-        };
-
-        return Div({
-            className: `powerup powerup-${powerUp.type}`,
-            key: `${powerUp.x}-${powerUp.y}`,
-            style: {
-                left: `${powerUp.x * TILE_SIZE}px`,
-                top: `${powerUp.y * TILE_SIZE}px`
-            }
-        }, [
-            jsx('img', {
-                src: powerUpImages[powerUp.type],
-                alt: powerUp.type,
-                style: {
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain'
-                }
-            })
-        ]);
-    }
-
-    // --- Main Render ---
     return Div({ className: 'game-app' }, [
         !joined && Component(LoginForm, {}, "login"),
         joined && waiting && Component(WaitingScreen, {}, "waiting"),
@@ -986,9 +859,7 @@ function GameApp() {
             }, [
                 GameStatusMessage(),
                 renderMap(),
-                renderPlayers(),
-                // bombs.map((bomb, idx) => renderBomb(bomb)),
-                // powerUps.map((powerUp, idx) => renderPowerUp(powerUp)),
+                renderPlayers()
             ]),
             showSidebar && Div({
                 className: 'sidebar'

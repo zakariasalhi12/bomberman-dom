@@ -25,7 +25,6 @@ const server = http.createServer((req, res) => {
     let filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
     const ext = path.extname(filePath);
 
-    // Default to index.html if path doesn't point to a known file
     fs.stat(filePath, (err, stat) => {
         if (err || !stat.isFile()) {
             filePath = path.join(__dirname, 'index.html');

@@ -2,7 +2,6 @@ import { WebSocketServer } from 'ws';
 import { Game } from './game/game.js';
 
 
-// Create WebSocket server
 const port = 8080;
 const wss = new WebSocketServer({ port });
 
@@ -59,7 +58,6 @@ wss.on('connection', (socket) => {
     });
 });
 
-// Graceful shutdown handler
 let isShuttingDown = false;
 
 async function cleanup() {
@@ -68,7 +66,6 @@ async function cleanup() {
 
     console.log('Starting graceful shutdown...');
 
-    // Close all WebSocket connections
     wss.clients.forEach(client => {
         try {
             client.send(JSON.stringify({ type: 'server_shutdown' }));
@@ -78,14 +75,12 @@ async function cleanup() {
         }
     });
 
-    // Clean up game resources
     try {
         game.cleanup();
     } catch (e) {
         console.error('Error cleaning up game:', e);
     }
 
-    // Close WebSocket server
     return new Promise((resolve) => {
         wss.close(() => {
             console.log('WebSocket server closed');
@@ -94,7 +89,6 @@ async function cleanup() {
     });
 }
 
-// Handle termination signals and errors
 process.on('SIGINT', async () => {
     console.log('Received SIGINT signal');
     await cleanup();

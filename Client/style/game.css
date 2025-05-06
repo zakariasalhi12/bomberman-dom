@@ -151,7 +151,6 @@
     box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
 }
 
-/* Player colors */
 .player-1 img {
     filter: hue-rotate(0deg);
 }
@@ -476,7 +475,6 @@
     }
 }
 
-/* Center everything on the page */
 body {
     background: #222;
     color: #fff;
@@ -485,7 +483,6 @@ body {
     font-family: 'Segoe UI', Arial, sans-serif;
 }
 
-/* Add styles for the sidebar/chat container */
 .game-sidebar {
     position: relative;
     width: 300px;
@@ -541,7 +538,6 @@ body {
     background: #5a5a5a;
 }
 
-/* Waiting screen */
 .waiting-screen {
     position: absolute;
     top: 0;

@@ -1,13 +1,8 @@
 import Room from './room.js';
 import Player from './player.js';
-// import { createRequire } from 'module';
-// const require = createRequire(import.meta.url);
-
 import { GAME_STATES, MAX_PLAYERS, WAITING_TIMEOUT, COUNTDOWN_DURATION, LIVES } from './constants.js';
-// const { getStartingPosition } = require('../utils/utils.js');
 
 const POWERUP_TYPES = ['bomb', 'flame', 'speed'];
-const TILE_SIZE = 40;
 
 export class Game {
     constructor(broadcastCallback) {
@@ -21,7 +16,6 @@ export class Game {
 
     generateMap(width, height) {
         const map = [];
-        // Create empty map filled with 0 (empty spaces)
         for (let y = 0; y < height; y++) {
             const row = [];
             for (let x = 0; x < width; x++) {
@@ -31,15 +25,15 @@ export class Game {
                     row.push(2);
                 } else {
                     const isCornerArea =
-                        (x <= 2 && y <= 2) || // Top-left
-                        (x <= 2 && y >= height - 3) || // Bottom-left
-                        (x >= width - 3 && y <= 2) || // Top-right
-                        (x >= width - 3 && y >= height - 3); // Bottom-right
+                        (x <= 2 && y <= 2) ||
+                        (x <= 2 && y >= height - 3) ||
+                        (x >= width - 3 && y <= 2) ||
+                        (x >= width - 3 && y >= height - 3);
 
                     if (isCornerArea) {
-                        row.push(0); // Keep corners empty
+                        row.push(0);
                     } else {
-                        row.push(Math.random() < 0.7 ? 1 : 0); // 70% chance for destructible block
+                        row.push(Math.random() < 0.7 ? 1 : 0);
                     }
                 }
             }
@@ -92,7 +86,6 @@ export class Game {
         room.addPlayer(player);
         console.log('Player added to room. New player count:', room.players.size);
 
-        // Send confirmation to the joining player
         const joinedGameMessage = {
             type: 'joined_game',
             playerId,
@@ -111,7 +104,6 @@ export class Game {
         console.log('Sending joined_game message:', joinedGameMessage);
         socket.send(JSON.stringify(joinedGameMessage));
 
-        // Notify other players in the room
         const playerJoinedMessage = {
             type: 'player_joined',
             playerId,
@@ -121,7 +113,6 @@ export class Game {
         console.log('Broadcasting player_joined message:', playerJoinedMessage);
         this.broadcastToRoom(room, playerJoinedMessage, socket);
 
-        // Start countdown logic
         if (room.players.size >= 2) {
             console.log('Enough players to start countdown');
             if (room.players.size === MAX_PLAYERS) {
@@ -183,10 +174,10 @@ export class Game {
 
     getStartingPosition(playerIndex, mapWidth, mapHeight) {
         const positions = [
-            { x: 1, y: 1 },                     // Top-left
-            { x: mapWidth - 2, y: 1 },          // Top-right
-            { x: 1, y: mapHeight - 2 },         // Bottom-left
-            { x: mapWidth - 2, y: mapHeight - 2 } // Bottom-right
+            { x: 1, y: 1 },
+            { x: mapWidth - 2, y: 1 },
+            { x: 1, y: mapHeight - 2 },
+            { x: mapWidth - 2, y: mapHeight - 2 }
         ];
         return positions[playerIndex % positions.length];
     }
@@ -200,7 +191,6 @@ export class Game {
         room.state = GAME_STATES.PLAYING;
         room.startTime = Date.now();
 
-        // Assign starting positions
         let playerIndex = 0;
         for (const [playerId, player] of room.players.entries()) {
             const position = this.getStartingPosition(playerIndex, room.map[0].length, room.map.length);
@@ -209,10 +199,9 @@ export class Game {
             playerIndex++;
         }
 
-        // Start game loop
         room.gameInterval = setInterval(() => {
             this.updateGame(room);
-        }, 1000 / 60); // 60 FPS
+        }, 1000 / 60);
 
         const gameStartMessage = {
             type: 'game_started',
@@ -238,23 +227,19 @@ export class Game {
         for (let i = 0; i < room.bombs.length; i++) {
             const bomb = room.bombs[i];
 
-            // Check bomb explosion
             if (Date.now() >= bomb.placedAt + bomb.timer) {
                 explodedBombs.push(bomb);
                 room.bombs.splice(i, 1);
                 i--;
 
-                // Handle explosion
                 const affectedTiles = this.getExplosionTiles(room, bomb);
 
-                // Check player damage
                 for (const [playerId, player] of room.players.entries()) {
                     for (const tile of affectedTiles) {
                         if (Math.floor(player.x) === tile.x && Math.floor(player.y) === tile.y) {
                             player.lives--;
 
                             if (player.lives <= 0) {
-                                // Drop power-up when player dies
                                 if (Math.random() < 0.5) {
                                     let powerType;
                                     if (player.bombs > 1 && Math.random() < 0.33) {
@@ -274,7 +259,6 @@ export class Game {
                                     });
                                 }
 
-                                // Remove player
                                 const playersocket = room.players.get(playerId)
                                 playersocket.socket.send(JSON.stringify({
                                     type: 'eliminated',
@@ -296,10 +280,7 @@ export class Game {
                     }
                 }
                 let powercollected = {};
-                // Destroy blocks and spawn power-ups
                 for (const tile of affectedTiles) {
-                    // if (tile.x >= 0 && tile.x < room.map[0].length &&
-                    //     tile.y >= 0 && tile.y < room.map.length) {
                     if (room.map[tile.y][tile.x] === 1) {
                         room.map[tile.y][tile.x] = 0;
 
@@ -317,10 +298,8 @@ export class Game {
                             }
                         }
                     }
-                    // }
                 }
 
-                // Send explosion data
                 this.broadcastToRoom(room, {
                     id: bomb.id,
                     type: 'explosion',
@@ -334,7 +313,6 @@ export class Game {
             }
         }
 
-        // Check power-up collection
         for (let i = 0; i < room.powerUps.length; i++) {
             const powerUp = room.powerUps[i];
 
@@ -346,7 +324,7 @@ export class Game {
                         case 'flame':
                             if (player.range < 3) player.range++; break;
                         case 'speed':
-                            if (player.speed <= 1.6) player.speed += 0.2; break;
+                            if (player.speed < 1.4) player.speed += 0.1; break;
                     }
 
                     room.powerUps.splice(i, 1);
@@ -369,7 +347,6 @@ export class Game {
             }
         }
 
-        // Check win condition
         if (room.players.size <= 1 && room.state === GAME_STATES.PLAYING) {
             this.endGame(room);
         }
@@ -387,7 +364,6 @@ export class Game {
             winnerNickname: winner ? room.players.get(winner).nickname : null
         });
 
-        // Clean up room after delay
         setTimeout(() => {
             this.rooms.delete(room.id);
         }, 60000);
@@ -415,8 +391,6 @@ export class Game {
                 if (tileType === 2) break;
 
                 affectedTiles.push({ x: newX, y: newY });
-
-                // if (tileType === 2) break;
             }
         }
 
@@ -429,8 +403,6 @@ export class Game {
 
         const player = room.players.get(playerId);
         if (!player) return;
-
-        // Calculate new position based on direction
         let newX = player.x;
         let newY = player.y;
 
@@ -441,11 +413,9 @@ export class Game {
             case 'right': newX += 1; break;
         }
 
-        // Ensure grid alignment
         newX = Math.round(newX);
         newY = Math.round(newY);
 
-        // Check boundaries and collisions
         newX = Math.max(0, Math.min(room.map[0].length - 1, newX));
         newY = Math.max(0, Math.min(room.map.length - 1, newY));
 
@@ -469,14 +439,12 @@ export class Game {
         const player = room.players.get(playerId);
         if (!player) return;
 
-        // Check bomb limit
         const activeBombs = room.bombs.filter(b => b.playerId === playerId).length;
         if (activeBombs >= player.bombs) {
             console.log("Bomb limit reached");
             return;
         };
 
-        // Place bomb
         const bomb = {
             id: Date.now().toString(36),
             x: Math.floor(player.x),
@@ -541,25 +509,20 @@ export class Game {
         }
     }
     isWalkable(room, x, y, direction) {
-        // Check boundaries
         if (x < 0 || y < 0 || y >= room.map.length || x >= room.map[0].length) {
             return false;
         }
 
-        // Get the tile at the target position
         const tile = room.map[y][x];
 
-        // Check for bombs at the exact position
         const hasBomb = room.bombs.some(bomb =>
             Math.floor(bomb.x) === x && Math.floor(bomb.y) === y
         );
 
-        // Check tile type
         if (tile === 1 || tile === 2 || hasBomb) {
-            return false; // Wall, destructible block, or bomb
+            return false;
         }
 
-        // Check if another player is on the tile
         for (const player of room.players.values()) {
             if (Math.floor(player.x) === x && Math.floor(player.y) === y) {
                 return false;
@@ -569,7 +532,6 @@ export class Game {
     }
 
     cleanup() {
-        // Clear all game intervals
         for (const room of this.rooms.values()) {
             if (room.gameInterval) {
                 clearInterval(room.gameInterval);
@@ -581,16 +543,13 @@ export class Game {
                 clearTimeout(room.countdownTimeout);
             }
 
-            // Notify all players in the room
             this.broadcastToRoom(room, { type: 'game_terminated' });
 
-            // Clear room data
             room.players.clear();
             room.bombs = [];
             room.powerUps = [];
         }
 
-        // Clear all rooms
         this.rooms.clear();
     }
 

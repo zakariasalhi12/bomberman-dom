@@ -9,9 +9,9 @@ function getPowerUpImage(type) {
 
 function getTileBackground(cell) {
     switch (cell) {
-        case 0: return '#2a2a2a';  // Empty tile
-        case 1: return '#8b4513';  // Destructible block
-        case 2: return '#4a4a4a';  // Indestructible wall
+        case 0: return '#2a2a2a';  
+        case 1: return '#8b4513';  
+        case 2: return '#4a4a4a';  
         default: return '#2a2a2a';
     }
 }
@@ -19,17 +19,17 @@ function getTileBackground(cell) {
 function getTileType(cell) {
     switch (cell) {
         case 0: return 'tile-empty';
-        case 1: return 'tile-block';    // Destructible block
-        case 2: return 'tile-wall';     // Indestructible wall
+        case 1: return 'tile-block';    
+        case 2: return 'tile-wall';    
         default: return 'tile-empty';
     }
 }
 
 function getTileImage(cell) {
     switch (cell) {
-        case 2: return './images/wallBlack.png';  // Indestructible wall
-        case 1: return './images/wall.png';       // Destructible block
-        default: return null;                     // Empty space
+        case 2: return './images/wallBlack.png';  
+        case 1: return './images/wall.png';      
+        default: return null;                     
     }
 }
 

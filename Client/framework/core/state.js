@@ -1,4 +1,3 @@
-// Fixed state.js
 import { rerender } from "./dom.js";
 import { shallowEqualObjects, areDepsEqual, isPlainObject } from "./watch.js";
 import componentStack from "./componentStack.js";

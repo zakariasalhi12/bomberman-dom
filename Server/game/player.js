@@ -13,5 +13,3 @@ export default class Player {
         this.socket = socket;
     }
 }
-// module.exports = Player;
-// export { Player };
