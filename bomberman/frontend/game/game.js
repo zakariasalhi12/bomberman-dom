@@ -1,28 +1,8 @@
-import { jsx, useState, useRef, useEffect, Div, H2, Input, Button, P, Ul, Li, Span, render, H1, Component } from '../framework/index.js';
+import { jsx, useState, useRef, useEffect, Div, H2, Input, Button, P, Ul, Li, Span, H1, Component } from '../framework/index.js';
 import componentStack from '../framework/core/componentStack.js';
+import { getPowerUpImage, getTileBackground, getTileImage, getTileType } from './utils.js';
+import { LIVES, TILE_SIZE, SPRITE_PATHS, SPRITE_SHEET_WIDTH, SPRITE_SIZE, FRAME_COUNT, FRAME_DURATION, MOVE_INTERVAL, MOVE_SPEED } from './constants.js';
 
-// Game constants
-const LIVES = 3;
-const TILE_SIZE = 40;
-
-// Animation constants
-const SPRITE_SIZE = 32;
-const SPRITE_SHEET_WIDTH = 96; // 3 frames per direction
-const FRAME_COUNT = 3;
-const FRAME_DURATION = 150; // Animation frame speed
-const MOVE_SPEED = 250; // Smooth animation speed
-const MOVE_INTERVAL = 100; // How often player can move
-
-// Common sprite paths for all players
-const SPRITE_PATHS = {
-    down: './images/move_down.png',
-    up: './images/move_up.png',
-    left: './images/move_left.png',
-    right: './images/move_right.png'
-};
-
-// Sprite paths for different directions (using color-specific paths)
-const getPlayerSpritePath = (color, direction) => `./images/${color}_${direction}.png`;
 
 function GameApp() {
     // Set component title
@@ -63,7 +43,6 @@ function GameApp() {
     // --- Refs ---
     const socketRef = useRef(null);
     const statusTimeoutRef = useRef(null);
-    const gameLoopRef = useRef(null);
     const lastFrameTimeRef = useRef(0);
     const FPS = 60;
     const frameInterval = 1000 / FPS;
@@ -78,23 +57,18 @@ function GameApp() {
     // Clean up component stack
     componentStack.pop();
 
-    // Game loop using requestAnimationFrame
     useEffect(() => {
         let animationFrameId;
 
         function gameLoop(timestamp) {
-            // Calculate delta time
             if (!lastFrameTimeRef.current) {
                 lastFrameTimeRef.current = timestamp;
             }
             const deltaTime = timestamp - lastFrameTimeRef.current;
 
-            // Only update if enough time has passed (for 60fps)
             if (deltaTime >= frameInterval) {
                 lastFrameTimeRef.current = timestamp - (deltaTime % frameInterval);
 
-                // Update game state
-                // Update player positions
                 setPlayers(prevPlayers => {
                     return prevPlayers.map(player => {
                         // Add any player movement logic here
@@ -102,13 +76,10 @@ function GameApp() {
                     });
                 });
 
-                // Update bombs and handle explosions
                 setBombs(prevBombs => {
                     const currentTime = Date.now();
                     const newBombs = prevBombs.filter(bomb => {
-                        // Check if bomb should explode
                         if (currentTime - bomb.placedAt >= 3000) { // 3 seconds timer
-                            // Create explosion effect
                             const explosion = {
                                 id: bomb.id,
                                 x: bomb.x,
@@ -134,13 +105,6 @@ function GameApp() {
                     return newBombs;
                 });
 
-                // Update powerups
-                // setPowerUps(prevPowerUps => {
-                //     return prevPowerUps.map(powerUp => {
-                //         // Add any powerup update logic here
-                //         return powerUp;
-                //     });
-                // });
 
                 // Update explosions
                 setExplosions(prevExplosions => {
@@ -158,11 +122,9 @@ function GameApp() {
                 });
             }
 
-            // Schedule next frame
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
-        // Start the game loop
         animationFrameId = requestAnimationFrame(gameLoop);
 
         // Cleanup
@@ -171,7 +133,7 @@ function GameApp() {
                 cancelAnimationFrame(animationFrameId);
             }
         };
-    }, []); // Empty dependency array means it runs once on mount and cleans up on unmount
+    }, []);
 
     // --- WebSocket Connection ---
     function connectToServer() {
@@ -312,17 +274,6 @@ function GameApp() {
         }
     }, [joined, waiting, gameOver, eliminated, roomId, playerId, players, playerSpeedBoosts]);
 
-    function calculateNewPosition(player, direction) {
-        const pos = { x: player.x, y: player.y };
-        switch (direction) {
-            case 'up': pos.y -= 1; break;
-            case 'down': pos.y += 1; break;
-            case 'left': pos.x -= 1; break;
-            case 'right': pos.x += 1; break;
-        }
-        return pos;
-    }
-
     function GameOverScreen() {
         if (!gameOver) return null;
         return Div({ className: 'game-over' }, [
@@ -331,33 +282,6 @@ function GameApp() {
         ]);
     }
 
-    // function isValidMove(pos) {
-    //     if (!map) return false;
-
-    //     // Check boundaries
-    //     if (pos.x < 0 || pos.x >= map[0].length || pos.y < 0 || pos.y >= map.length) {
-    //         return false;
-    //     }
-
-    //     // Check walls and blocks
-    //     const tile = map[Math.floor(pos.y)][Math.floor(pos.x)];
-    //     if (tile === 1 || tile === 2) {
-    //         return false;
-    //     }
-
-    //     // Check other players
-    //     const playerCollision = players.some(p =>
-    //         p.x === Math.floor(pos.x) && p.y === Math.floor(pos.y)
-    //     );
-
-    //     // Check bombs
-    //     const bombCollision = bombs.some(b =>
-    //         b.x === Math.floor(pos.x) && b.y === Math.floor(pos.y)
-    //     );
-
-    //     return !playerCollision && !bombCollision;
-    // }
-
     // --- Server Message Handler ---
     function handleServerMessage(data) {
         console.log('Handling server message:', data);
@@ -365,7 +289,6 @@ function GameApp() {
         try {
             switch (data.type) {
                 case 'joined_game':
-                    console.log('Player joined game - Raw data:', data);
                     setPlayerId(data.playerId);
                     setRoomId(data.roomId);
                     if (data.map) {
@@ -380,7 +303,6 @@ function GameApp() {
                     }
                     setShowSidebar(true);
                     break;
-
                 case 'player_joined':
                     setStatusMsg(`${data.nickname} joined the game!`);
                     setStatusType('joined');
@@ -402,14 +324,11 @@ function GameApp() {
                     break;
 
                 case 'player_left':
-                    console.log('Player left:', data);
                     setStatusMsg(`${data.nickname || 'A player'} left the game.`);
                     setStatusType('left');
                     setPlayers(prev => prev.filter(p => p.id !== data.playerId));
                     break;
-
                 case 'game_started':
-                    console.log('Game started:', data);
                     setCountdown(null);
                     setWaiting(false);
                     if (data.map) {
@@ -436,7 +355,6 @@ function GameApp() {
                     break;
 
                 case 'player_moved':
-                    console.log('Player moved:', data);
                     setPlayers(prev => prev.map(p =>
                         p.id === data.playerId
                             ? {
@@ -459,7 +377,6 @@ function GameApp() {
                         return newAnimations;
                     });
 
-                    // Reset animation after movement
                     setTimeout(() => {
                         setPlayerAnimations(prev => {
                             const newAnimations = new Map(prev);
@@ -482,7 +399,6 @@ function GameApp() {
                     }]);
                     break;
                 case 'explosion':
-                    console.log('Explosion:', data);
                     setBombs(prev => prev.filter(b => b.id !== data.id));
 
                     // Create explosion effect
@@ -603,30 +519,6 @@ function GameApp() {
         });
     }, [powerUps]);
 
-    // Add state change debugging
-    // useEffect(() => {
-    //     console.log('Game state changed:', {
-    //         map,
-    //         players,
-    //         bombs,
-    //         powerUps,
-    //         countdown,
-    //         gameOver,
-    //         waiting,
-    //         joined
-    //     });
-    // }, [map, players, bombs, powerUps, countdown, gameOver, waiting, joined]);
-
-    // // Add game state effect
-    // useEffect(() => {
-    //     if (map && players.length > 0) {
-    //         console.log('Game state updated:', {
-    //             mapSize: [map[0].length, map.length],
-    //             playerCount: players.length,
-    //             currentPlayerId: playerId
-    //         });
-    //     }
-    // }, [map, players, playerId]);
 
     // Status message fade out
     if (statusMsg) {
@@ -636,20 +528,6 @@ function GameApp() {
             setStatusType('');
         }, 3500);
     }
-
-    // Add debug render information
-    // console.log('Current state:', {
-    //     nickname,
-    //     joined,
-    //     waiting,
-    //     playerId,
-    //     roomId,
-    //     players,
-    //     map,
-    //     countdown,
-    //     statusMsg,
-    //     showSidebar
-    // });
 
     // Add countdown effect
     useEffect(() => {
@@ -698,6 +576,7 @@ function GameApp() {
         };
     }, [players, playerAnimations]);
 
+
     // --- UI Components ---
     function LoginForm() {
         return Div({ className: 'login-form' }, [
@@ -716,10 +595,8 @@ function GameApp() {
     }
 
     function WaitingScreen() {
-        console.log('WaitingScreen');
         return Div({
             className: 'waiting-screen',
-
             style: {
                 display: 'flex',
                 flexDirection: 'column',
@@ -794,30 +671,6 @@ function GameApp() {
             : null;
     }
 
-    // Add explosion rendering function
-    function renderExplosion(explosion) {
-        const currentTime = Date.now();
-        const elapsed = currentTime - explosion.startTime;
-        const progress = Math.min(elapsed / explosion.duration, 1);
-        const alpha = 1 - progress; // Fade out effect
-
-        return Div({
-            className: 'explosion',
-            key: explosion.id,
-            style: {
-                position: 'absolute',
-                left: `${explosion.x * TILE_SIZE}px`,
-                top: `${explosion.y * TILE_SIZE}px`,
-                width: `${TILE_SIZE}px`,
-                height: `${TILE_SIZE}px`,
-                opacity: alpha,
-                background: 'radial-gradient(circle, rgba(255,255,0,0.8) 0%, rgba(255,0,0,0.8) 100%)',
-                borderRadius: '50%',
-                zIndex: 90,
-                transition: 'opacity 0.5s ease-out'
-            }
-        });
-    }
 
     function renderMap() {
         if (!map) return null;
@@ -933,40 +786,7 @@ function GameApp() {
     }
 
     // Helper function to get power-up images
-    function getPowerUpImage(type) {
-        switch (type) {
-            case 'bomb': return './images/spoil_tileset.webp';
-            case 'flame': return './images/explosion.png';
-            case 'speed': return './images/speed.webp';
-            default: return './images/powerup.png';
-        }
-    }
 
-    function getTileBackground(cell) {
-        switch (cell) {
-            case 0: return '#2a2a2a';  // Empty tile
-            case 1: return '#8b4513';  // Destructible block
-            case 2: return '#4a4a4a';  // Indestructible wall
-            default: return '#2a2a2a';
-        }
-    }
-
-    function getTileType(cell) {
-        switch (cell) {
-            case 0: return 'tile-empty';
-            case 1: return 'tile-block';    // Destructible block
-            case 2: return 'tile-wall';     // Indestructible wall
-            default: return 'tile-empty';
-        }
-    }
-
-    function getTileImage(cell) {
-        switch (cell) {
-            case 2: return './images/wallBlack.png';  // Indestructible wall
-            case 1: return './images/wall.png';       // Destructible block
-            default: return null;                     // Empty space
-        }
-    }
 
     function renderPlayers() {
         if (!map || !players.length) {

@@ -341,9 +341,12 @@ export class Game {
             for (const [playerId, player] of room.players.entries()) {
                 if (Math.floor(player.x) === powerUp.x && Math.floor(player.y) === powerUp.y) {
                     switch (powerUp.type) {
-                        case 'bomb': player.bombs++; break;
-                        case 'flame': player.range++; break;
-                        case 'speed': player.speed += 0.2; break;
+                        case 'bomb':
+                            if (player.bombs < 3) player.bombs++; break;
+                        case 'flame':
+                            if (player.range < 3) player.range++; break;
+                        case 'speed':
+                            if (player.speed <= 1.6) player.speed += 0.2; break;
                     }
 
                     room.powerUps.splice(i, 1);
