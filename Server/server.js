@@ -1,13 +1,6 @@
 import { WebSocketServer } from 'ws';
-import GameService from './services/gameService.js';
-import RoomService from './services/roomService.js';
-import WebSocketService from './services/websocketService.js';
 import { Game } from './game/game.js';
 
-// Initialize services
-const gameService = new GameService();
-const roomService = new RoomService(gameService);
-const websocketService = new WebSocketService(roomService, gameService);
 
 // Create WebSocket server
 const port = 8080;
