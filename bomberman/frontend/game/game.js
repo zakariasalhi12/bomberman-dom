@@ -240,10 +240,8 @@ function GameApp() {
 
     // Add keyboard event handling
     useEffect(() => {
-        // Only add listener if game is active and player is not eliminated
         if (joined && !waiting && !gameOver && !eliminated && roomId && playerId) {
             const handleKeyDownWrapper = (event) => {
-                // Only process movement if game is in active state
                 if (!roomId || !playerId || gameStateRef.current.isMoving) return;
 
                 const now = Date.now();
@@ -262,10 +260,10 @@ function GameApp() {
                     gameStateRef.current.isMoving = true;
                     gameStateRef.current.lastUpdate = now;
 
-                    // Update player direction
+                    // Update player direction immediately
                     setPlayerDirections(prev => new Map(prev).set(playerId, direction));
 
-                    // Start animation
+                    // Start animation immediately
                     setPlayerAnimations(prev => {
                         const newAnimations = new Map(prev);
                         const currentAnim = prev.get(playerId) || { isMoving: false, frameIndex: 0 };
@@ -276,16 +274,15 @@ function GameApp() {
                         return newAnimations;
                     });
 
-                    // Send move to server
+                    // Send move to server immediately
                     const currentPlayer = players.find(p => p.id === playerId);
                     if (currentPlayer) {
                         sendMessage({ type: 'move', roomId, playerId, direction });
                     }
 
+                    // Reset movement state after animation duration
                     setTimeout(() => {
                         gameStateRef.current.isMoving = false;
-
-                        // Stop animation after movement
                         setPlayerAnimations(prev => {
                             const newAnimations = new Map(prev);
                             newAnimations.set(playerId, {
@@ -299,13 +296,9 @@ function GameApp() {
             };
 
             window.addEventListener('keydown', handleKeyDownWrapper);
-
-            // Cleanup function to remove the event listener
-            return () => {
-                window.removeEventListener('keydown', handleKeyDownWrapper);
-            };
+            return () => window.removeEventListener('keydown', handleKeyDownWrapper);
         }
-    }, [joined, waiting, gameOver, eliminated, roomId, playerId, players]); // Add all dependencies that the handler uses
+    }, [joined, waiting, gameOver, eliminated, roomId, playerId, players]);
 
     function calculateNewPosition(player, direction) {
         const pos = { x: player.x, y: player.y };
@@ -443,7 +436,7 @@ function GameApp() {
                     ));
                     setPlayerDirections(prev => new Map(prev).set(data.playerId, data.direction));
 
-                    // Start animation with correct frame index calculation
+                    // Start animation immediately
                     setPlayerAnimations(prev => {
                         const newAnimations = new Map(prev);
                         const currentAnim = prev.get(data.playerId) || { isMoving: false, frameIndex: 0 };
@@ -454,8 +447,8 @@ function GameApp() {
                         return newAnimations;
                     });
 
+                    // Reset animation after movement
                     setTimeout(() => {
-                        // Stop animation after movement
                         setPlayerAnimations(prev => {
                             const newAnimations = new Map(prev);
                             newAnimations.set(data.playerId, {
@@ -860,6 +853,7 @@ function GameApp() {
 
                             // Render powerup if present
                             powerUps.find(p => p.x === x && p.y === y) && jsx('img', {
+                                key: `powerup-${x}-${y}`,
                                 src: getPowerUpImage(powerUps.find(p => p.x === x && p.y === y).type),
                                 alt: 'powerup',
                                 style: {
@@ -873,6 +867,7 @@ function GameApp() {
 
                             // Render bomb if present
                             bombs.find(b => b.x === x && b.y === y) && jsx('img', {
+                                key: `bomb-${x}-${y}`,
                                 src: './images/bomb.png',
                                 alt: 'bomb',
                                 style: {
@@ -1125,8 +1120,8 @@ function GameApp() {
                 GameStatusMessage(),
                 renderMap(),
                 renderPlayers(),
-                bombs.map((bomb, idx) => renderBomb(bomb)),
-                powerUps.map((powerUp, idx) => renderPowerUp(powerUp)),
+                // bombs.map((bomb, idx) => renderBomb(bomb)),
+                // powerUps.map((powerUp, idx) => renderPowerUp(powerUp)),
             ]),
             showSidebar && Div({
                 className: 'sidebar'
