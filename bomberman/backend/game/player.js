@@ -7,7 +7,7 @@ export default class Player {
         this.x = 0;
         this.y = 0;
         this.lives = LIVES;
-        this.bombs = 1;
+        this.bombs = 3;
         this.range = 1;
         this.speed = 1;
         this.socket = socket;

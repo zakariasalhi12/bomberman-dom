@@ -1,4 +1,4 @@
-import { jsx, useState, useRef, useEffect, Div, H2, Input, Button, P, Ul, Li, Span, render, H1 } from '../framework/index.js';
+import { jsx, useState, useRef, useEffect, Div, H2, Input, Button, P, Ul, Li, Span, render, H1, Component } from '../framework/index.js';
 import componentStack from '../framework/core/componentStack.js';
 
 // Game constants
@@ -69,6 +69,9 @@ function GameApp() {
     const frameInterval = 1000 / FPS;
     const explosionsRef = useRef(new Map()); // Store active explosions
 
+    // Add explosion state management
+    const [explosions, setExplosions] = useState(new Map());
+
     // Clean up component stack
     componentStack.pop();
 
@@ -135,6 +138,21 @@ function GameApp() {
                 //         return powerUp;
                 //     });
                 // });
+
+                // Update explosions
+                setExplosions(prevExplosions => {
+                    const currentTime = Date.now();
+                    const newExplosions = new Map(prevExplosions);
+
+                    // Remove expired explosions
+                    for (const [id, explosion] of newExplosions.entries()) {
+                        if (currentTime - explosion.startTime >= explosion.duration) {
+                            newExplosions.delete(id);
+                        }
+                    }
+
+                    return newExplosions;
+                });
             }
 
             // Schedule next frame
@@ -159,7 +177,7 @@ function GameApp() {
         }
 
         console.log('Connecting to WebSocket server...');
-        const socket = new WebSocket('ws://localhost:8080');
+        const socket = new WebSocket(`ws://${window.location.hostname}:8080`);
         socketRef.current = socket;
 
         socket.onopen = () => {
@@ -220,59 +238,74 @@ function GameApp() {
         sendMessage({ type: 'place_bomb', roomId, playerId });
     }
 
-    function handleKeyDown(event) {
-        if (!roomId || !playerId || gameStateRef.current.isMoving) return;
+    // Add keyboard event handling
+    useEffect(() => {
+        // Only add listener if game is active and player is not eliminated
+        if (joined && !waiting && !gameOver && !eliminated && roomId && playerId) {
+            const handleKeyDownWrapper = (event) => {
+                // Only process movement if game is in active state
+                if (!roomId || !playerId || gameStateRef.current.isMoving) return;
 
-        const now = Date.now();
-        if (now - gameStateRef.current.lastUpdate < gameStateRef.current.moveInterval) return;
+                const now = Date.now();
+                if (now - gameStateRef.current.lastUpdate < gameStateRef.current.moveInterval) return;
 
-        let direction = null;
-        switch (event.key) {
-            case 'ArrowUp': direction = 'up'; break;
-            case 'ArrowDown': direction = 'down'; break;
-            case 'ArrowLeft': direction = 'left'; break;
-            case 'ArrowRight': direction = 'right'; break;
-            case ' ': placeBomb(); return;
-        }
+                let direction = null;
+                switch (event.key) {
+                    case 'ArrowUp': direction = 'up'; break;
+                    case 'ArrowDown': direction = 'down'; break;
+                    case 'ArrowLeft': direction = 'left'; break;
+                    case 'ArrowRight': direction = 'right'; break;
+                    case ' ': placeBomb(); return;
+                }
 
-        if (direction) {
-            gameStateRef.current.isMoving = true;
-            gameStateRef.current.lastUpdate = now;
+                if (direction) {
+                    gameStateRef.current.isMoving = true;
+                    gameStateRef.current.lastUpdate = now;
 
-            // Update player direction
-            setPlayerDirections(prev => new Map(prev).set(playerId, direction));
+                    // Update player direction
+                    setPlayerDirections(prev => new Map(prev).set(playerId, direction));
 
-            // Start animation
-            setPlayerAnimations(prev => {
-                const newAnimations = new Map(prev);
-                newAnimations.set(playerId, {
-                    isMoving: true,
-                    frameIndex: (prev.get(playerId)?.frameIndex || 0 + 1) % FRAME_COUNT
-                });
-                return newAnimations;
-            });
-
-            // Send move to server
-            const currentPlayer = players.find(p => p.id === playerId);
-            if (currentPlayer) {
-                sendMessage({ type: 'move', roomId, playerId, direction });
-            }
-
-            setTimeout(() => {
-                gameStateRef.current.isMoving = false;
-                
-                // Stop animation after movement
-                setPlayerAnimations(prev => {
-                    const newAnimations = new Map(prev);
-                    newAnimations.set(playerId, {
-                        isMoving: false,
-                        frameIndex: 0
+                    // Start animation
+                    setPlayerAnimations(prev => {
+                        const newAnimations = new Map(prev);
+                        const currentAnim = prev.get(playerId) || { isMoving: false, frameIndex: 0 };
+                        newAnimations.set(playerId, {
+                            isMoving: true,
+                            frameIndex: (currentAnim.frameIndex + 1) % FRAME_COUNT
+                        });
+                        return newAnimations;
                     });
-                    return newAnimations;
-                });
-            }, MOVE_INTERVAL);
+
+                    // Send move to server
+                    const currentPlayer = players.find(p => p.id === playerId);
+                    if (currentPlayer) {
+                        sendMessage({ type: 'move', roomId, playerId, direction });
+                    }
+
+                    setTimeout(() => {
+                        gameStateRef.current.isMoving = false;
+
+                        // Stop animation after movement
+                        setPlayerAnimations(prev => {
+                            const newAnimations = new Map(prev);
+                            newAnimations.set(playerId, {
+                                isMoving: false,
+                                frameIndex: 0
+                            });
+                            return newAnimations;
+                        });
+                    }, MOVE_INTERVAL);
+                }
+            };
+
+            window.addEventListener('keydown', handleKeyDownWrapper);
+
+            // Cleanup function to remove the event listener
+            return () => {
+                window.removeEventListener('keydown', handleKeyDownWrapper);
+            };
         }
-    }
+    }, [joined, waiting, gameOver, eliminated, roomId, playerId, players]); // Add all dependencies that the handler uses
 
     function calculateNewPosition(player, direction) {
         const pos = { x: player.x, y: player.y };
@@ -408,24 +441,24 @@ function GameApp() {
                             }
                             : p
                     ));
-                    setPlayerDirections(prev => new Map(prev).set(playerId, data.direction));
+                    setPlayerDirections(prev => new Map(prev).set(data.playerId, data.direction));
 
-                    // Start animation
+                    // Start animation with correct frame index calculation
                     setPlayerAnimations(prev => {
                         const newAnimations = new Map(prev);
-                        newAnimations.set(playerId, {
+                        const currentAnim = prev.get(data.playerId) || { isMoving: false, frameIndex: 0 };
+                        newAnimations.set(data.playerId, {
                             isMoving: true,
-                            frameIndex: (prev.get(playerId)?.frameIndex || 0 + 1) % FRAME_COUNT
+                            frameIndex: (currentAnim.frameIndex + 1) % FRAME_COUNT
                         });
                         return newAnimations;
                     });
+
                     setTimeout(() => {
-                        gameStateRef.current.isMoving = false;
-                        
                         // Stop animation after movement
                         setPlayerAnimations(prev => {
                             const newAnimations = new Map(prev);
-                            newAnimations.set(playerId, {
+                            newAnimations.set(data.playerId, {
                                 isMoving: false,
                                 frameIndex: 0
                             });
@@ -446,7 +479,25 @@ function GameApp() {
                 case 'explosion':
                     console.log('Explosion:', data);
                     setBombs(prev => prev.filter(b => b.id !== data.id));
-                    setPowerUps(prevPowerUps => [...prevPowerUps, data.powerups]);
+
+                    // Create explosion effect
+                    const explosion = {
+                        id: data.id,
+                        x: data.x,
+                        y: data.y,
+                        range: data.range,
+                        startTime: Date.now(),
+                        duration: 500, // Explosion animation duration in ms
+                        affectedTiles: data.tiles || []
+                    };
+
+                    setExplosions(prev => {
+                        const newExplosions = new Map(prev);
+                        newExplosions.set(data.id, explosion);
+                        return newExplosions;
+                    });
+
+                    // Update map and powerups
                     if (data.tiles) {
                         setMap(prev => {
                             if (!prev) return prev;
@@ -459,6 +510,10 @@ function GameApp() {
                             return newMap;
                         });
                     }
+
+                    if (data.powerups) {
+                        setPowerUps(prev => [...prev, data.powerups]);
+                    }
                     break;
                 case 'countdown_started':
                     console.log('Countdown started with duration:', data.duration);
@@ -467,14 +522,12 @@ function GameApp() {
                     setWaiting(false);
                     break;
                 case 'countdown_update':
-                    console.log('Countdown update received:', data.remainingTime);
                     setCountdown(data.remainingTime);
                     break;
                 case 'player_damaged':
                     setPlayers((prev) => prev.map(p => p.id === data.playerId ? { ...p, lives: data.livesLeft } : p));
                     break;
                 case 'eliminated':
-                    window.removeEventListener('keydown', handleKeyDown);
                     setEliminated(true)
                     break;
                 case 'player_eliminated':
@@ -537,15 +590,6 @@ function GameApp() {
     //         });
     //     }
     // }, [map, players, playerId]);
-
-    // Add keyboard event handling
-    useEffect(() => {
-        // console.warn("keydown")
-        // if (joined && !waiting && !gameOver) {
-        window.addEventListener('keydown', handleKeyDown);
-        // // return () => window.removeEventListener('keydown', handleKeyDown);
-        // }
-    }, [joined, waiting, gameOver, roomId, playerId, map, players]);
 
     // Status message fade out
     if (statusMsg) {
@@ -763,16 +807,15 @@ function GameApp() {
                         const tileType = getTileType(cell);
                         const tileImage = getTileImage(cell);
 
-                        // Check if there's a bomb at this position
-                        const bombAtPosition = bombs?.find(bomb => bomb.x === x && bomb.y === y);
-
-                        // Check if there's a power-up at this position
-                        const powerUpAtPosition = powerUps?.find(powerUp => powerUp.x === x && powerUp.y === y);
-
-                        // Check if there's an explosion at this position
-                        const explosionsArray = Array.from(explosionsRef.current.values());
-                        const explosionAtPosition = explosionsArray.find(
-                            explosion => explosion.x === x && explosion.y === y
+                        // Check for explosions at this position
+                        const explosionAtPosition = Array.from(explosions.values()).find(
+                            explosion => {
+                                const isCenter = explosion.x === x && explosion.y === y;
+                                const isAffected = explosion.affectedTiles.some(
+                                    tile => tile.x === x && tile.y === y
+                                );
+                                return isCenter || isAffected;
+                            }
                         );
 
                         return Div({
@@ -788,7 +831,7 @@ function GameApp() {
                                 border: '1px solid #444'
                             }
                         }, [
-                            // First render the tile background if it's not empty
+                            // Render tile background
                             (tileImage && jsx('img', {
                                 src: tileImage,
                                 alt: tileType,
@@ -800,7 +843,7 @@ function GameApp() {
                                 }
                             })),
 
-                            // If there's an explosion, render it on top
+                            // Render explosion if present
                             explosionAtPosition && Div({
                                 className: 'explosion',
                                 style: {
@@ -810,14 +853,15 @@ function GameApp() {
                                     opacity: 1 - ((Date.now() - explosionAtPosition.startTime) / explosionAtPosition.duration),
                                     background: 'radial-gradient(circle, rgba(255,255,0,0.8) 0%, rgba(255,0,0,0.8) 100%)',
                                     borderRadius: '50%',
-                                    zIndex: 85
+                                    zIndex: 85,
+                                    transition: 'opacity 0.1s linear'
                                 }
                             }),
 
-                            // If there's a power-up, render it
-                            powerUpAtPosition && jsx('img', {
-                                src: getPowerUpImage(powerUpAtPosition.type),
-                                alt: powerUpAtPosition.type,
+                            // Render powerup if present
+                            powerUps.find(p => p.x === x && p.y === y) && jsx('img', {
+                                src: getPowerUpImage(powerUps.find(p => p.x === x && p.y === y).type),
+                                alt: 'powerup',
                                 style: {
                                     width: '32px',
                                     height: '32px',
@@ -827,8 +871,8 @@ function GameApp() {
                                 }
                             }),
 
-                            // If there's a bomb, render it on top of everything else
-                            bombAtPosition && jsx('img', {
+                            // Render bomb if present
+                            bombs.find(b => b.x === x && b.y === y) && jsx('img', {
                                 src: './images/bomb.png',
                                 alt: 'bomb',
                                 style: {
@@ -1066,12 +1110,12 @@ function GameApp() {
 
     // --- Main Render ---
     return Div({ className: 'game-app' }, [
-        !joined && LoginForm(),
-        joined && waiting && WaitingScreen(),
-        joined && waitingTimeout !== null && WaitingTimeoutCountdown(),
+        !joined && Component(LoginForm, {}, "login"),
+        joined && waiting && Component(WaitingScreen, {}, "waiting"),
+        joined && waitingTimeout !== null && Component(WaitingTimeoutCountdown, {}, "waitingTimeout"),
         joined && Countdown(),
-        eliminated && EliminatedScreen(),
-        gameOver && GameOverScreen(),
+        eliminated && Component(EliminatedScreen, {}, "eliminated"),
+        gameOver && Component(GameOverScreen, {}, "gameOver"),
         joined && !waiting && !gameOver && !eliminated && Div({
             className: 'game-container'
         }, [
@@ -1081,8 +1125,8 @@ function GameApp() {
                 GameStatusMessage(),
                 renderMap(),
                 renderPlayers(),
-                bombs.map(bomb => renderBomb(bomb)),
-                powerUps.map(powerUp => renderPowerUp(powerUp)),
+                bombs.map((bomb, idx) => renderBomb(bomb)),
+                powerUps.map((powerUp, idx) => renderPowerUp(powerUp)),
             ]),
             showSidebar && Div({
                 className: 'sidebar'
