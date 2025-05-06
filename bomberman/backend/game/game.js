@@ -460,6 +460,7 @@ export class Game {
     }
 
     handlePlaceBomb(roomId, playerId) {
+        console.log("Placing bomb FIREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEED");
         const room = this.rooms.get(roomId);
         if (!room || room.state !== GAME_STATES.PLAYING) return;
 
@@ -468,7 +469,10 @@ export class Game {
 
         // Check bomb limit
         const activeBombs = room.bombs.filter(b => b.playerId === playerId).length;
-        if (activeBombs >= player.bombs) return;
+        if (activeBombs >= player.bombs) {
+            console.log("Bomb limit reached");
+            return;
+        };
 
         // Place bomb
         const bomb = {
@@ -544,7 +548,7 @@ export class Game {
         const tile = room.map[y][x];
 
         // Check for bombs at the exact position
-        const hasBomb = room.bombs.some(bomb => 
+        const hasBomb = room.bombs.some(bomb =>
             Math.floor(bomb.x) === x && Math.floor(bomb.y) === y
         );
 
